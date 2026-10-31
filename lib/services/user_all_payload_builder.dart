@@ -178,11 +178,9 @@ class UserAllPayloadBuilder {
           },
     ];
 
-    final missionList =
-        userMissionResp['userMissionDataList'] as List<dynamic>? ?? const [];
+    // 逐行过滤：服务器偶尔回 null 行，直接 `as Map` 会在 take() 之后炸掉整包。
     final missions = <Map<String, dynamic>>[];
-    for (final raw in missionList.take(6)) {
-      final m = raw as Map<String, dynamic>;
+    for (final m in jsonMapList(userMissionResp['userMissionDataList']).take(6)) {
       missions.add({
         'type': m['type'],
         'difficulty': m['difficulty'],
@@ -313,7 +311,9 @@ class UserAllPayloadBuilder {
       'userPlaylogList': [playlog],
       'upsertUserAll': {
         'userData': [newUserData],
-        'userExtend': [userExtendResp['userExtend']],
+        // 这几段服务器可能整个不回，缺了就给空对象——直接取下标会往包里塞 null，
+        // 服务端反序列化 `UserExtend`/`UserActivity` 时会整包失败。
+        'userExtend': [jsonMap(userExtendResp['userExtend'])],
         'userOption': [newUserOption],
         'userCharacterList': [],
         'userGhost': [],
@@ -326,7 +326,7 @@ class UserAllPayloadBuilder {
         'userFriendSeasonRankingList': [],
         'userChargeList': userChargeList,
         'userFavoriteList': [],
-        'userActivityList': [userActivityResp['userActivity']],
+        'userActivityList': [jsonMap(userActivityResp['userActivity'])],
         'userMissionDataList': missions,
         'userWeeklyData': {
           'lastLoginWeek': weekly['lastLoginWeek'],

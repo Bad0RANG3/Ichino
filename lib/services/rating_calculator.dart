@@ -43,9 +43,6 @@ class RatingCalculator {
   static int computeRa(double ds, double achievement) =>
       compute(ds, achievement).ra;
 
-  static String computeRaRate(double ds, double achievement) =>
-      compute(ds, achievement).rate;
-
   static RaResult compute(double ds, double achievement) {
     final achievementRaw =
         (achievement * 10000.0).round().clamp(0, _maxAchievement);

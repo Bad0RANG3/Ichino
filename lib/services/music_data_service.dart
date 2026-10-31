@@ -12,6 +12,16 @@ class MusicInfo {
   const MusicInfo({required this.title, required this.dsByLevel});
 }
 
+/// 乐曲元数据加载失败：文案直接面向用户（`describeApiError` 会原样显示）。
+class MusicDataException implements Exception {
+  final String message;
+
+  const MusicDataException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 /// 乐曲元数据来源，移植自 Empurple 的 `MusicDataProvider`。
 ///
 /// 游戏接口的 ratingList 只有 musicId，曲名与各难度定数需要另行获取。
@@ -41,11 +51,20 @@ class MusicDataService {
 
   Future<void> _load() async {
     final cached = await readTextCache(_cacheFileName);
-    final content = cached ?? await _download();
-    _parse(content);
-    if (cached == null) {
-      await writeTextCache(_cacheFileName, content);
+    if (cached != null) {
+      try {
+        _parse(cached);
+        return;
+      } catch (_) {
+        // 缓存文件被截断/写坏时不能一直拿它当答案：删掉重下一次，
+        // 否则每次启动都会在这里失败，B50 永远缺曲名与定数。
+        await deleteTextCache(_cacheFileName);
+      }
     }
+
+    final content = await _download();
+    _parse(content);
+    await writeTextCache(_cacheFileName, content);
   }
 
   Future<String> _download() async {
@@ -53,14 +72,17 @@ class MusicDataService {
         .get(Uri.parse(_musicDataUrl), headers: const {'User-Agent': 'Ichino/1.0'})
         .timeout(const Duration(seconds: 20));
     if (response.statusCode != 200) {
-      throw Exception('music_data HTTP ${response.statusCode}');
+      throw MusicDataException('乐曲数据下载失败（HTTP ${response.statusCode}）');
     }
     return response.body;
   }
 
   void _parse(String content) {
     final decoded = jsonDecode(content);
-    if (decoded is! List) return;
+    // 形状不对就抛：坏数据若被当成「解析成功」，写回缓存后每次启动都会拿到它。
+    if (decoded is! List) {
+      throw const MusicDataException('乐曲数据格式不正确');
+    }
     _byId.clear();
     for (final item in decoded.whereType<Map<String, dynamic>>()) {
       final id = jsonInt(item['id']);

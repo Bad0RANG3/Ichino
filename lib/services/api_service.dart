@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 
 import '../config/title_server_config.dart';
+import '../core/date_time_format.dart';
 import 'aimedb_transport.dart';
 import 'api_log.dart';
 
@@ -91,11 +92,9 @@ class ApiService {
       normalizeQr(input).substring(_qrHeadLength);
 
   /// 真机报的是机台本地墙上时间，所以这里跟着设备时区走，不固定偏移。
-  static String formatTimestamp(DateTime now) {
-    String two(int v) => v.toString().padLeft(2, '0');
-    return '${two(now.year % 100)}${two(now.month)}${two(now.day)}'
-        '${two(now.hour)}${two(now.minute)}${two(now.second)}';
-  }
+  static String formatTimestamp(DateTime now) =>
+      '${twoDigits(now.year % 100)}${twoDigits(now.month)}${twoDigits(now.day)}'
+      '${twoDigits(now.hour)}${twoDigits(now.minute)}${twoDigits(now.second)}';
 
   Future<LoginResult> login(String qrInput) async {
     final chipId = _cfg?.fullKeychipId ?? '';

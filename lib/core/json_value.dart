@@ -22,7 +22,10 @@ bool jsonBool(dynamic value, {bool fallback = false}) {
   if (value is num) return value != 0;
   if (value is String) {
     final normalized = value.trim().toLowerCase();
-    return normalized == '1' || normalized == 'true';
+    if (normalized == '1' || normalized == 'true') return true;
+    if (normalized == '0' || normalized == 'false') return false;
+    // 认不出的字符串与 null / 其他类型一样走 fallback，与 jsonInt 的行为一致。
+    return fallback;
   }
   return fallback;
 }

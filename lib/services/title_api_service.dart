@@ -8,7 +8,9 @@ import 'package:http/http.dart' as http;
 import 'package:pointycastle/export.dart';
 
 import '../config/title_server_config.dart';
+import '../core/cookie.dart';
 import '../core/date_time_format.dart';
+import '../core/json_value.dart';
 import '../models/user_data.dart';
 import 'api_log.dart';
 import '../models/user_character.dart';
@@ -136,18 +138,14 @@ class TitleApiService {
   /// Port of empurple `HttpResult.cookieHeader()`: only the `JSESSIONID`
   /// from the Set-Cookie response headers is used for subsequent requests.
   void _captureCookiesFromResponse(http.Response response, String apiName) {
-    final headerKeys = response.headers.keys.toList();
-    for (final key in headerKeys) {
+    for (final key in response.headers.keys) {
       if (!key.toLowerCase().contains('set-cookie')) continue;
-      final value = response.headers[key]!;
-      final match =
-          RegExp(r'JSESSIONID=([^;,]+)', caseSensitive: false).firstMatch(value);
-      if (match != null) {
-        _cookies = 'JSESSIONID=${match.group(1)!.trim()}';
-        ApiLog.log('[$apiName] >>> Captured session cookie: $_cookies');
-        onCookiesChanged?.call(_cookies!);
-        return;
-      }
+      final cookie = parseJsessionId(response.headers[key]);
+      if (cookie == null) continue;
+      _cookies = cookie;
+      ApiLog.log('[$apiName] >>> Captured session cookie: $cookie');
+      onCookiesChanged?.call(cookie);
+      return;
     }
   }
 
@@ -206,13 +204,22 @@ class TitleApiService {
       ApiLog.log('[$apiName] Cookie: $cookies');
     }
 
-    final response = await http
-        .post(
-          url,
-          headers: headers,
-          body: body,
-        )
-        .timeout(const Duration(seconds: 15));
+    // 网络/超时异常也包成 TitleApiException：否则超时会以 TimeoutException
+    // 冒到界面，`describeApiError` 只能打印一行调试文本，会话恢复也认不出它。
+    final http.Response response;
+    try {
+      response = await http
+          .post(
+            url,
+            headers: headers,
+            body: body,
+          )
+          .timeout(const Duration(seconds: 15));
+    } on TitleApiException {
+      rethrow;
+    } catch (e) {
+      throw TitleApiException('$apiName 请求失败：$e');
+    }
 
     _captureCookiesFromResponse(response, apiName);
 
@@ -238,9 +245,8 @@ class TitleApiService {
   }
 
   static int calcRandom() {
-    final rand = _RandomHelper();
-    final max = 1037933;
-    final num2 = (rand.nextInt(max - 1) + 1) * 2069 + 1024;
+    const max = 1037933;
+    final num2 = (Random().nextInt(max - 1) + 1) * 2069 + 1024;
     var num3 = 0;
     var n = num2;
     for (var i = 0; i < 32; i++) {
@@ -347,7 +353,7 @@ class TitleApiService {
 
     final json = await _callApi(apiName, packet, userId);
 
-    final returnCode = json['returnCode'] as int? ?? -1;
+    final returnCode = (json['returnCode'] as num?)?.toInt() ?? -1;
     if (returnCode != 1) {
       throw TitleApiException('UserLoginApi returnCode=$returnCode');
     }
@@ -440,19 +446,6 @@ class TitleApiService {
 
   // ---- UpsertUserAll (发包) ----
 
-  /// Upload a single playlog record (fake game log).
-  Future<void> uploadUserPlaylog(
-    Map<String, dynamic> userPlaylog,
-    int userId,
-  ) async {
-    const apiName = 'UploadUserPlaylogApi';
-    final json = await _callApi(apiName, {
-      'userId': userId,
-      'userPlaylog': userPlaylog,
-    }, userId);
-    _checkReturnCode(json, apiName);
-  }
-
   /// Fetch all user data needed to build an UpsertUserAll payload.
   /// Returns a map keyed by the raw API names (e.g. 'GetUserDataApi').
   Future<Map<String, Map<String, dynamic>>> fetchUserAllData(int userId) async {
@@ -487,17 +480,6 @@ class TitleApiService {
     _checkReturnCode(json, apiName);
   }
 
-  /// Fetch user character list.
-  Future<List<Map<String, dynamic>>> getUserCharacter(int userId) async {
-    final json = await _callApi(
-      'GetUserCharacterApi',
-      {'userId': userId},
-      userId,
-    );
-    final list = json['userCharacterList'] as List<dynamic>? ?? [];
-    return list.map((e) => e as Map<String, dynamic>).toList();
-  }
-
   /// 旅行伙伴（角色）列表，对应 UserCharacterResponseVO。
   Future<List<UserCharacterBean>> getUserCharacters(int userId) async {
     final json = await _callApi(
@@ -512,10 +494,27 @@ class TitleApiService {
   ///
   /// 客户端 `PacketGetUserMap.cs:51-57` 是分页拉的：`nextIndex != 0` 就用它续拉，
   /// 把所有页的 `userMapList` 拼起来。这里照做，否则只能看到第一页的区域。
-  Future<List<Map<String, dynamic>>> getUserMaps(int userId) async {
-    const apiName = 'GetUserMapApi';
+  Future<List<Map<String, dynamic>>> getUserMaps(int userId) => _callPaged(
+        apiName: 'GetUserMapApi',
+        listKey: 'userMapList',
+        userId: userId,
+        firstIndex: 0,
+        maxPages: 20,
+      );
+
+  /// 分页接口的公共循环：`nextIndex` 归零或翻满 [maxPages] 页就停。
+  ///
+  /// `GetUserMapApi`（首页 `nextIndex` 为 0）与 `GetUserItemApi`（首页
+  /// `nextIndex` 由 itemKind 编码而来）只差起步值与页数上限，收在同一处。
+  Future<List<Map<String, dynamic>>> _callPaged({
+    required String apiName,
+    required String listKey,
+    required int userId,
+    required int firstIndex,
+    required int maxPages,
+  }) async {
     final all = <Map<String, dynamic>>[];
-    var nextIndex = 0;
+    var nextIndex = firstIndex;
     var pages = 0;
 
     do {
@@ -524,13 +523,10 @@ class TitleApiService {
         'nextIndex': nextIndex,
       }, userId);
 
-      final list = json['userMapList'];
-      if (list is List) {
-        all.addAll(list.whereType<Map<String, dynamic>>());
-      }
+      all.addAll(jsonMapList(json[listKey]));
       nextIndex = (json['nextIndex'] as num?)?.toInt() ?? 0;
       pages++;
-    } while (nextIndex != 0 && pages < 20);
+    } while (nextIndex != 0 && pages < maxPages);
 
     return all;
   }
@@ -558,28 +554,14 @@ class TitleApiService {
   Future<List<Map<String, dynamic>>> getUserItems(
     int userId,
     int itemKind,
-  ) async {
-    const apiName = 'GetUserItemApi';
-    final all = <Map<String, dynamic>>[];
-    var nextIndex = itemKind * 10000000000;
-    var pages = 0;
-
-    do {
-      final json = await _callApi(apiName, {
-        'userId': userId,
-        'nextIndex': nextIndex,
-      }, userId);
-
-      final list = json['userItemList'];
-      if (list is List) {
-        all.addAll(list.whereType<Map<String, dynamic>>());
-      }
-      nextIndex = (json['nextIndex'] as num?)?.toInt() ?? 0;
-      pages++;
-    } while (nextIndex != 0 && pages < 40);
-
-    return all;
-  }
+  ) =>
+      _callPaged(
+        apiName: 'GetUserItemApi',
+        listKey: 'userItemList',
+        userId: userId,
+        firstIndex: itemKind * 10000000000,
+        maxPages: 40,
+      );
 
   /// 一次读多个 itemKind，返回 `'kind:itemId'` 的键集合。
   ///
@@ -603,10 +585,4 @@ class TitleApiService {
     ]);
     return keys;
   }
-}
-
-class _RandomHelper {
-  final _random = Random();
-
-  int nextInt(int max) => _random.nextInt(max);
 }

@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../core/cookie.dart';
+
 /// 实验性：一次登录的可搬运快照（用户 ID + JSESSIONID Cookie + 令牌），
 /// 编码方式是 Base64(JSON)，用于在别的设备上恢复会话、免重新扫码。
 ///
@@ -27,19 +29,7 @@ class SessionShare {
 
   /// 只取 `JSESSIONID`：传输层后续请求就靠它维持会话
   /// （见 `TitleApiService._captureCookiesFromResponse`）。
-  String? get jsessionid {
-    final raw = cookie;
-    if (raw == null) return null;
-    for (final part in raw.split(';')) {
-      final pair = part.trim();
-      final eq = pair.indexOf('=');
-      if (eq <= 0) continue;
-      if (pair.substring(0, eq).toUpperCase() != 'JSESSIONID') continue;
-      final value = pair.substring(eq + 1).trim();
-      return value.isEmpty ? null : 'JSESSIONID=$value';
-    }
-    return null;
-  }
+  String? get jsessionid => parseJsessionId(cookie);
 
   bool get hasCookie => jsessionid != null;
   bool get hasToken => token.isNotEmpty;

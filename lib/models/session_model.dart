@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../config/title_server_config.dart';
+import '../services/api_log.dart';
 import '../services/api_service.dart';
 import '../services/title_api_service.dart';
 import 'session_share.dart';
@@ -40,11 +41,9 @@ class SessionModel extends ChangeNotifier {
 
   final ApiService _apiService = ApiService();
 
-  LoginResult? _loginResult;
   UserLoginResult? _gameLogin;
   String? _cookies;
 
-  LoginResult? get loginResult => _loginResult;
   UserLoginResult? get gameLogin => _gameLogin;
   String? get cookies => _cookies;
 
@@ -64,10 +63,7 @@ class SessionModel extends ChangeNotifier {
   /// 格式不合预期时 [ApiService.login] 抛 [FormatException]。
   Future<LoginResult> loginWithQr(String qrInput) async {
     final result = await _apiService.login(qrInput);
-    if (result.success) {
-      _loginResult = result;
-      notifyListeners();
-    }
+    if (result.success) notifyListeners();
     return result;
   }
 
@@ -104,8 +100,10 @@ class SessionModel extends ChangeNotifier {
         userId: userId,
         loginDateTime: login.loginDateTime,
       );
-    } catch (_) {
-      // best-effort
+    } catch (e) {
+      // 退登是尽力而为：服务器没收到也要把本地登录态清掉，但留一条日志，
+      // 免得「退登后票据页仍报已登录」这类问题完全无迹可查。
+      ApiLog.log('[logout] 服务器退登失败：$e');
     }
     _gameLogin = null;
     notifyListeners();
@@ -215,7 +213,6 @@ class SessionModel extends ChangeNotifier {
   }
 
   void reset() {
-    _loginResult = null;
     _gameLogin = null;
     _cookies = null;
     notifyListeners();

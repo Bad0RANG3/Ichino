@@ -24,6 +24,16 @@ Future<void> writeTextCache(String fileName, String content) async {
   }
 }
 
+/// 丢弃一份缓存（内容解析失败时调用），失败同样静默忽略。
+Future<void> deleteTextCache(String fileName) async {
+  try {
+    final file = await _file(fileName);
+    if (await file.exists()) await file.delete();
+  } catch (_) {
+    // 删不掉也只是下次继续读坏缓存，不该让调用方失败。
+  }
+}
+
 Future<File> _file(String fileName) async {
   final dir = Directory('${Directory.systemTemp.path}/ichino_cache');
   await dir.create(recursive: true);

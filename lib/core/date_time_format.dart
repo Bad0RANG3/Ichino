@@ -10,7 +10,10 @@ DateTime shanghaiFromUnixSeconds(int seconds) =>
     DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true)
         .add(shanghaiOffset);
 
-String _two(int value) => value.toString().padLeft(2, '0');
+/// 两位左补齐。`ApiService` 的 `yymmddHHmmss` 时间戳也用它，不再各写一份。
+String twoDigits(int value) => value.toString().padLeft(2, '0');
+
+String _two(int value) => twoDigits(value);
 
 String formatDate(DateTime dt) =>
     '${dt.year}-${_two(dt.month)}-${_two(dt.day)}';
