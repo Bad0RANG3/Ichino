@@ -1,3 +1,4 @@
+import '../config/title_server_config.dart';
 import '../models/session_model.dart';
 import '../models/user_data.dart';
 import '../models/user_preview.dart';
@@ -10,6 +11,23 @@ import '../services/title_api_service.dart';
 const int uiPreviewUserId = 12345678901234;
 const String uiPreviewToken = 'ui-preview-token';
 const int uiPreviewLoginId = 987654;
+
+/// 预览用配置：只为让 `isConfigured` 成立（票据/风险页据此决定是渲染页面
+/// 还是「请先配置 Title Server」）。密钥是凑长度的占位串——AES-256 的 key
+/// 要 32 字节、IV 要 16 字节，这样真去点「拉取数据」时报的是连接失败，
+/// 而不是「密钥长度不对」这种与界面无关的错误。
+const TitleServerConfig uiPreviewConfig = TitleServerConfig(
+  titleServerUrl: 'http://127.0.0.1:9/',
+  aesKey: 'ichino-ui-preview-key-0000000000',
+  aesIv: 'ichino-preview-1',
+  obfuscateParam: 'LatuAa81',
+  apiVersion: '1.53',
+  clientId: 'A63E01C2805',
+  regionId: 1,
+  placeId: 1403,
+  regionName: '预览地区',
+  placeName: '预览机厅',
+);
 
 const UserDataBean uiPreviewUserData = UserDataBean(
   userId: uiPreviewUserId,
