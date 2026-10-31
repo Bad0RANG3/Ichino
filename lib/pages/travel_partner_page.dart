@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 import '../config/strings.dart';
@@ -6,9 +5,9 @@ import '../models/session_model.dart';
 import '../models/user_character.dart';
 import '../services/title_api_service.dart';
 import '../services/user_all_payload_builder.dart';
-import '../widgets/app_card.dart';
-import '../widgets/app_notice.dart';
 import '../widgets/cooldown_mixin.dart';
+import '../widgets/risk/risk_list_widgets.dart';
+import '../widgets/risk/risk_page_scaffold.dart';
 import '../widgets/risk/risk_run_mixin.dart';
 import '../widgets/risk/risk_widgets.dart';
 import '../widgets/step_progress.dart';
@@ -71,8 +70,6 @@ class _TravelPartnerPageState extends State<TravelPartnerPage>
     super.dispose();
   }
 
-  void _snack(String message) => context.showSnack(message);
-
   bool _isAvailable(int characterId) =>
       characterId != 0 &&
       (_owned.any((c) => c.characterId == characterId) ||
@@ -83,9 +80,8 @@ class _TravelPartnerPageState extends State<TravelPartnerPage>
       cookies: widget.cookies,
     );
     if (service == null) return;
-    setRiskFetching(true);
 
-    try {
+    await runRiskFetch(() async {
       final results = await Future.wait([
         service.getUserCharacters(widget.userId),
         service.fetchUserAllData(widget.userId),
@@ -106,27 +102,22 @@ class _TravelPartnerPageState extends State<TravelPartnerPage>
         _userAllData = all;
         _slots = normalizeCharaSlot(slots);
         // 槽位里引用了但列表没有的角色，保留为可选，避免下拉框丢项。
-        riskFetching = false;
       });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => riskFetching = false);
-      _snack('${AppStrings.loadFailed}: ${describeApiError(e)}');
-    }
+    });
   }
 
   void _addGrant() {
     final id = int.tryParse(_grantIdController.text.trim()) ?? -1;
     if (id <= 0) {
-      _snack(AppStrings.travelPartnerNeedCharacterId);
+      riskSnack(AppStrings.travelPartnerNeedCharacterId);
       return;
     }
     if (_owned.any((c) => c.characterId == id)) {
-      _snack(AppStrings.travelPartnerAlreadyOwned);
+      riskSnack(AppStrings.travelPartnerAlreadyOwned);
       return;
     }
     if (_pendingGrant.contains(id)) {
-      _snack(AppStrings.listDuplicate);
+      riskSnack(AppStrings.listDuplicate);
       return;
     }
     setState(() {
@@ -139,11 +130,11 @@ class _TravelPartnerPageState extends State<TravelPartnerPage>
   void _copySlot0ToOthers() {
     final leader = _slots.isNotEmpty ? _slots[0] : 0;
     if (leader == 0) {
-      _snack(AppStrings.travelPartnerCopyNeedSlot0);
+      riskSnack(AppStrings.travelPartnerCopyNeedSlot0);
       return;
     }
     if (!_isAvailable(leader)) {
-      _snack(AppStrings.travelPartnerNotOwnedHint);
+      riskSnack(AppStrings.travelPartnerNotOwnedHint);
       return;
     }
     setState(() {
@@ -171,10 +162,7 @@ class _TravelPartnerPageState extends State<TravelPartnerPage>
   }
 
   String? _validate() {
-    if (_pendingGrant.isEmpty && _userAllData.isEmpty) {
-      return AppStrings.travelPartnerNoData;
-    }
-    if (_userAllData.isEmpty) return AppStrings.travelPartnerNoData;
+    if (_userAllData.isEmpty) return AppStrings.needFetchFirst;
     for (final slot in _slots) {
       if (slot != 0 && !_isAvailable(slot)) {
         return AppStrings.travelPartnerNotOwnedHint;
@@ -189,20 +177,17 @@ class _TravelPartnerPageState extends State<TravelPartnerPage>
   }
 
   Future<void> _run() async {
-    final guard = riskPreconditionError(
+    if (!ensureRiskReady(
       loginDateTime: widget.loginDateTime,
       loginId: widget.loginId,
-      cooldownRemaining: cooldownRemaining,
       notLoggedInMessage: AppStrings.travelPartnerNotLoggedIn,
       cooldownNotice: AppStrings.travelPartnerCooldownNotice,
-    );
-    if (guard != null) {
-      _snack(guard);
+    )) {
       return;
     }
     final validationError = _validate();
     if (validationError != null) {
-      _snack(validationError);
+      riskSnack(validationError);
       return;
     }
 
@@ -305,71 +290,50 @@ class _TravelPartnerPageState extends State<TravelPartnerPage>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final hasData = _userAllData.isNotEmpty && _owned.isNotEmpty;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(AppStrings.travelPartnerFeatureTitle),
-      ),
-      body: RiskPageBody(
-        children: [
-          RiskStatusNotices(
-            isLoggedIn: isLoggedIn,
-            cooldownRemaining: cooldownRemaining,
-            notLoggedInText: AppStrings.travelPartnerNotLoggedIn,
-            cooldownText: AppStrings.travelPartnerCooldownNotice,
-          ),
-          RiskFeatureCard(
-            icon: Icons.card_giftcard,
-            title: AppStrings.travelPartnerFeatureDesc,
-          ),
-          const SizedBox(height: 12),
+      appBar: AppBar(title: const Text(AppStrings.travelPartnerFeatureTitle)),
+      body: RiskFeatureScaffold(
+        isLoggedIn: isLoggedIn,
+        cooldownRemaining: cooldownRemaining,
+        notLoggedInMessage: AppStrings.travelPartnerNotLoggedIn,
+        cooldownNotice: AppStrings.travelPartnerCooldownNotice,
+        featureIcon: Icons.card_giftcard,
+        featureTitle: AppStrings.travelPartnerFeatureTitle,
+        featureDescription: AppStrings.travelPartnerFeatureDesc,
+        cards: [
           RiskFetchCard(
-            hasData: _userAllData.isNotEmpty && _owned.isNotEmpty,
-            statusText: _userAllData.isNotEmpty && _owned.isNotEmpty
-                ? AppStrings.travelPartnerFetched
-                : AppStrings.travelPartnerNoData,
-            loadingLabel: AppStrings.travelPartnerFetching,
-            actionLabel: _userAllData.isNotEmpty
-                ? AppStrings.travelPartnerRefetch
-                : AppStrings.travelPartnerFetchData,
+            hasData: hasData,
+            statusText: hasData
+                ? AppStrings.fetched
+                : AppStrings.fetchNotFetched,
+            loadingLabel: AppStrings.fetching,
+            actionLabel: hasData ? AppStrings.refetch : AppStrings.fetchData,
             loading: riskFetching,
             enabled: !riskRunning,
             onFetch: _fetchData,
           ),
-          const SizedBox(height: 12),
           _grantCard(theme),
-          const SizedBox(height: 12),
           _slotCard(theme),
-          const SizedBox(height: 12),
           _ownedCard(theme),
-          const SizedBox(height: 12),
-          AutoLogoutToggle(
-            value: riskAutoLogout,
-            enabled: widget.onExitToTitle != null && !riskRunning,
-            onChanged: setRiskAutoLogout,
-          ),
-          const SizedBox(height: 12),
-          RiskRunButton(
-            running: riskRunning,
-            enabled: isLoggedIn,
-            icon: Icons.send,
-            label: AppStrings.travelPartnerRun,
-            runningLabel: AppStrings.travelPartnerRunning,
-            onPressed: _run,
-          ),
-          if (riskStep != RiskStep.idle) ...[
-            const SizedBox(height: 16),
-            StepProgressCard(
-              step: riskStep,
-              message: riskStepMessage,
-              error: riskError,
-              steps: [
-                (RiskStep.fetchData, AppStrings.travelPartnerStepFetch),
-                (RiskStep.upload, AppStrings.travelPartnerStepUpload),
-                if (riskAutoLogout) (RiskStep.logout, AppStrings.stepLogout),
-              ],
-            ),
-          ],
+        ],
+        autoLogout: riskAutoLogout,
+        autoLogoutEnabled: widget.onExitToTitle != null,
+        onAutoLogoutChanged: setRiskAutoLogout,
+        running: riskRunning,
+        runEnabled: isLoggedIn,
+        runIcon: Icons.send,
+        runLabel: AppStrings.travelPartnerRun,
+        runningLabel: AppStrings.running,
+        onRun: _run,
+        step: riskStep,
+        stepMessage: riskStepMessage,
+        stepError: riskError,
+        steps: [
+          (RiskStep.fetchData, AppStrings.travelPartnerStepFetch),
+          (RiskStep.upload, AppStrings.travelPartnerStepUpload),
+          if (riskAutoLogout) (RiskStep.logout, AppStrings.stepLogout),
         ],
       ),
     );
@@ -384,45 +348,18 @@ class _TravelPartnerPageState extends State<TravelPartnerPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 14),
-          TextField(
+          RiskNumberField(
             controller: _grantIdController,
+            label: AppStrings.travelPartnerCharacterIdLabel,
+            hint: AppStrings.travelPartnerCharacterIdHint,
             enabled: enabled,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              labelText: AppStrings.travelPartnerCharacterIdLabel,
-              hintText: AppStrings.travelPartnerCharacterIdHint,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              contentPadding: const EdgeInsets.all(14),
-            ),
           ),
           const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: enabled ? _addGrant : null,
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text(AppStrings.listAddButton),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            ),
-          ),
+          RiskAddButton(onPressed: enabled ? _addGrant : null),
           const SizedBox(height: 10),
-          Text(
-            _pendingGrant.isEmpty
-                ? AppStrings.travelPartnerGrantEmpty
-                : _pendingGrant.map((e) => '#$e').join('  '),
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontFamily: 'monospace',
-              color: _pendingGrant.isEmpty
-                  ? theme.colorScheme.onSurfaceVariant
-                  : theme.colorScheme.onSurface,
-            ),
+          RiskPendingIds(
+            ids: _pendingGrant,
+            emptyHint: AppStrings.travelPartnerGrantEmpty,
           ),
           const SizedBox(height: 12),
           Text(
@@ -489,18 +426,10 @@ class _TravelPartnerPageState extends State<TravelPartnerPage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  DropdownButtonFormField<int>(
-                    initialValue: _slots[i],
-                    decoration: InputDecoration(
-                      labelText: AppStrings.travelPartnerSlotLabel(i),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                    ),
+                  RiskDropdownField<int>(
+                    value: _slots[i],
+                    label: AppStrings.travelPartnerSlotLabel(i),
+                    enabled: !riskRunning,
                     items: [
                       DropdownMenuItem(
                         value: 0,
@@ -512,33 +441,20 @@ class _TravelPartnerPageState extends State<TravelPartnerPage>
                       for (final id in optionIds)
                         DropdownMenuItem(value: id, child: Text('#$id')),
                     ],
-                    onChanged: riskRunning
-                        ? null
-                        : (v) => setState(() {
-                            final next = [..._slots];
-                            next[i] = v ?? 0;
-                            _slots = next;
-                          }),
+                    onChanged: (v) => setState(() {
+                      final next = [..._slots];
+                      next[i] = v;
+                      _slots = next;
+                    }),
                   ),
                   if (_slots[i] != 0) ...[
                     const SizedBox(height: 6),
-                    TextField(
+                    RiskNumberField(
                       controller: _slotLevelControllers[i],
+                      label: AppStrings.travelPartnerLevelLabel,
+                      hint: AppStrings.travelPartnerLevelHint,
                       enabled: !riskRunning,
-                      keyboardType: TextInputType.number,
                       onChanged: (_) => setState(() {}),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        labelText: AppStrings.travelPartnerLevelLabel,
-                        hintText: AppStrings.travelPartnerLevelHint,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                      ),
                     ),
                     ..._levelHintLines(theme, _slotLevelControllers[i].text),
                   ],

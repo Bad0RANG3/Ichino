@@ -4,7 +4,9 @@ import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import '../config/strings.dart';
 import '../models/session_model.dart';
 import '../models/session_share.dart';
+import 'app_button.dart';
 import 'app_card.dart';
+import 'app_code_box.dart';
 import 'app_notice.dart';
 
 /// 实验性：把当前会话打包成 Base64「连接信息」，在别的设备粘贴即可恢复。
@@ -71,41 +73,16 @@ class _ConnectionShareCardState extends State<ConnectionShareCard> {
             ),
           ),
           const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.tonalIcon(
-              onPressed: _copy,
-              icon: const Icon(Icons.copy_all, size: 20),
-              label: const Text(AppStrings.connectionShareCopy),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 13),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
+          AppButton(
+            label: AppStrings.connectionShareCopy,
+            icon: Icons.copy_all,
+            tonal: true,
+            verticalPadding: 13,
+            onPressed: _copy,
           ),
           if (_encoded != null) ...[
             const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withValues(
-                  alpha: 0.5,
-                ),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: SingleChildScrollView(
-                child: SelectableText(
-                  _encoded!,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-            ),
+            AppCodeBox(text: _encoded!, maxHeight: null),
             const SizedBox(height: 10),
             Text(
               AppStrings.connectionShareSecurity,

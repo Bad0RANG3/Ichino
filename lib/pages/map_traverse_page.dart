@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 import '../config/strings.dart';
@@ -7,8 +6,9 @@ import '../models/session_model.dart';
 import '../services/title_api_service.dart';
 import '../services/user_all_payload_builder.dart';
 import '../widgets/app_card.dart';
-import '../widgets/app_notice.dart';
 import '../widgets/cooldown_mixin.dart';
+import '../widgets/risk/risk_list_widgets.dart';
+import '../widgets/risk/risk_page_scaffold.dart';
 import '../widgets/risk/risk_run_mixin.dart';
 import '../widgets/risk/risk_widgets.dart';
 import '../widgets/step_progress.dart';
@@ -62,16 +62,14 @@ class _MapTraversePageState extends State<MapTraversePage>
     super.dispose();
   }
 
-  void _snack(String message) => context.showSnack(message);
-
   void _addPending() {
     final id = int.tryParse(_mapIdController.text.trim()) ?? -1;
     if (id <= 0) {
-      _snack(AppStrings.mapNeedMapId);
+      riskSnack(AppStrings.mapNeedMapId);
       return;
     }
     if (_pending.contains(id)) {
-      _snack(AppStrings.listDuplicate);
+      riskSnack(AppStrings.listDuplicate);
       return;
     }
     setState(() {
@@ -93,9 +91,8 @@ class _MapTraversePageState extends State<MapTraversePage>
       cookies: widget.cookies,
     );
     if (service == null) return;
-    setRiskFetching(true);
 
-    try {
+    await runRiskFetch(() async {
       final results = await Future.wait([
         service.fetchUserAllData(widget.userId),
         service.getUserMaps(widget.userId),
@@ -104,29 +101,21 @@ class _MapTraversePageState extends State<MapTraversePage>
       setState(() {
         _userAllData = results[0] as Map<String, Map<String, dynamic>>;
         _applyServerMaps(results[1] as List<Map<String, dynamic>>);
-        riskFetching = false;
       });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => riskFetching = false);
-      _snack('${AppStrings.loadFailed}: ${describeApiError(e)}');
-    }
+    });
   }
 
   Future<void> _run() async {
-    final guard = riskPreconditionError(
+    if (!ensureRiskReady(
       loginDateTime: widget.loginDateTime,
       loginId: widget.loginId,
-      cooldownRemaining: cooldownRemaining,
       notLoggedInMessage: AppStrings.mapNotLoggedIn,
       cooldownNotice: AppStrings.mapCooldownNotice,
-    );
-    if (guard != null) {
-      _snack(guard);
+    )) {
       return;
     }
     if (_pending.isEmpty) {
-      _snack(AppStrings.mapNeedMapId);
+      riskSnack(AppStrings.mapNeedMapId);
       return;
     }
 
@@ -204,121 +193,72 @@ class _MapTraversePageState extends State<MapTraversePage>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final hasData = _serverMapIds != null;
 
     return Scaffold(
       appBar: AppBar(title: const Text(AppStrings.mapFeatureTitle)),
-      body: RiskPageBody(
-        children: [
-          RiskStatusNotices(
-            isLoggedIn: isLoggedIn,
-            cooldownRemaining: cooldownRemaining,
-            notLoggedInText: AppStrings.mapNotLoggedIn,
-            cooldownText: AppStrings.mapCooldownNotice,
-          ),
-          RiskFeatureCard(
-            icon: Icons.map_outlined,
-            title: AppStrings.mapFeatureTitle,
-            description: AppStrings.mapFeatureDesc,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Text(
-                AppStrings.mapCollectiblesNotice,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.error,
-                  height: 1.5,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _inputCard(theme),
-          const SizedBox(height: 12),
+      body: RiskFeatureScaffold(
+        isLoggedIn: isLoggedIn,
+        cooldownRemaining: cooldownRemaining,
+        notLoggedInMessage: AppStrings.mapNotLoggedIn,
+        cooldownNotice: AppStrings.mapCooldownNotice,
+        featureIcon: Icons.map_outlined,
+        featureTitle: AppStrings.mapFeatureTitle,
+        featureDescription: AppStrings.mapFeatureDesc,
+        featureWarning: AppStrings.mapCollectiblesNotice,
+        cards: [
+          _inputCard(),
           RiskFetchCard(
-            hasData: _serverMapIds != null,
-            statusText: _serverMapIds != null
-                ? '${AppStrings.mapFetched} (${_serverMaps.length})'
-                : AppStrings.mapNoData,
-            loadingLabel: AppStrings.travelPartnerFetching,
-            actionLabel: AppStrings.mapFetchData,
+            hasData: hasData,
+            statusText: hasData
+                ? '${AppStrings.fetched} (${_serverMaps.length})'
+                : AppStrings.fetchNotFetched,
+            loadingLabel: AppStrings.fetching,
+            actionLabel: AppStrings.fetchData,
             loading: riskFetching,
             enabled: !riskRunning,
             onFetch: _fetchData,
           ),
-          const SizedBox(height: 12),
-          AutoLogoutToggle(
-            value: riskAutoLogout,
-            enabled: widget.onExitToTitle != null && !riskRunning,
-            onChanged: setRiskAutoLogout,
-          ),
-          const SizedBox(height: 12),
-          RiskRunButton(
-            running: riskRunning,
-            enabled: isLoggedIn,
-            icon: Icons.flag_outlined,
-            label: AppStrings.mapRun,
-            runningLabel: AppStrings.mapRunning,
-            onPressed: _run,
-          ),
-          if (riskStep != RiskStep.idle) ...[
-            const SizedBox(height: 16),
-            StepProgressCard(
-              step: riskStep,
-              message: riskStepMessage,
-              steps: [
-                (RiskStep.fetchData, AppStrings.mapStepFetch),
-                (RiskStep.upload, AppStrings.mapStepUpload),
-                if (riskAutoLogout) (RiskStep.logout, AppStrings.stepLogout),
-              ],
-            ),
-          ],
+        ],
+        autoLogout: riskAutoLogout,
+        autoLogoutEnabled: widget.onExitToTitle != null,
+        onAutoLogoutChanged: setRiskAutoLogout,
+        running: riskRunning,
+        runEnabled: isLoggedIn,
+        runIcon: Icons.flag_outlined,
+        runLabel: AppStrings.mapRun,
+        runningLabel: AppStrings.running,
+        onRun: _run,
+        step: riskStep,
+        stepMessage: riskStepMessage,
+        stepError: riskError,
+        steps: [
+          (RiskStep.fetchData, AppStrings.mapStepFetch),
+          (RiskStep.upload, AppStrings.mapStepUpload),
+          if (riskAutoLogout) (RiskStep.logout, AppStrings.stepLogout),
         ],
       ),
     );
   }
 
-  Widget _inputCard(ThemeData theme) {
+  Widget _inputCard() {
     final enabled = !riskRunning;
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextField(
+          RiskNumberField(
             controller: _mapIdController,
+            label: AppStrings.mapIdLabel,
+            hint: AppStrings.mapIdHint,
             enabled: enabled,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              labelText: AppStrings.mapIdLabel,
-              hintText: AppStrings.mapIdHint,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              contentPadding: const EdgeInsets.all(14),
-            ),
           ),
           const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: enabled ? _addPending : null,
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text(AppStrings.listAddButton),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          ),
+          RiskAddButton(onPressed: enabled ? _addPending : null),
           const SizedBox(height: 10),
-          Text(
-            _pending.isEmpty
-                ? AppStrings.mapPendingEmpty
-                : _pending.map((e) => '#$e').join('  '),
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontFamily: 'monospace',
-              color: _pending.isEmpty
-                  ? theme.colorScheme.onSurfaceVariant
-                  : theme.colorScheme.onSurface,
-            ),
+          RiskPendingIds(
+            ids: _pending,
+            emptyHint: AppStrings.mapPendingEmpty,
           ),
         ],
       ),

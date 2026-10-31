@@ -10,7 +10,6 @@ class AppCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
   final Color? borderColor;
-  final EdgeInsetsGeometry? margin;
   final VoidCallback? onTap;
 
   const AppCard({
@@ -18,7 +17,6 @@ class AppCard extends StatelessWidget {
     required this.child,
     this.padding = const EdgeInsets.all(20),
     this.borderColor,
-    this.margin,
     this.onTap,
   });
 
@@ -29,7 +27,6 @@ class AppCard extends StatelessWidget {
 
     return Card(
       elevation: 0,
-      margin: margin,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
@@ -50,17 +47,15 @@ class AppCard extends StatelessWidget {
 
 /// 卡片内的标题行：图标 + 彩色标题。
 class SectionTitle extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
   final String title;
   final Color? color;
-  final double iconSize;
 
   const SectionTitle({
     super.key,
-    required this.icon,
     required this.title,
+    this.icon,
     this.color,
-    this.iconSize = 18,
   });
 
   @override
@@ -69,8 +64,10 @@ class SectionTitle extends StatelessWidget {
     final tint = color ?? theme.colorScheme.primary;
     return Row(
       children: [
-        Icon(icon, size: iconSize, color: tint),
-        const SizedBox(width: 8),
+        if (icon != null) ...[
+          Icon(icon, size: 18, color: tint),
+          const SizedBox(width: 8),
+        ],
         Expanded(
           child: Text(
             title,
@@ -81,6 +78,56 @@ class SectionTitle extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 卡片内的「标签 + 值」行：标签定宽、值可换行。
+///
+/// 主页资料 / 统计 / 关于页原来各有一份私有实现，只有标签宽度不同
+/// （110 / 130 / 104），这里统一成 [labelWidth]。
+class AppInfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  /// 值的右侧附加组件（如状态胶囊）；给了就不再单独渲染 [value]。
+  final Widget? trailing;
+  final double labelWidth;
+
+  const AppInfoRow({
+    super.key,
+    required this.label,
+    required this.value,
+    this.trailing,
+    this.labelWidth = 110,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: labelWidth,
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Expanded(
+            child: trailing ??
+                Text(
+                  value.isEmpty ? '-' : value,
+                  style: theme.textTheme.bodyMedium,
+                ),
+          ),
+        ],
+      ),
     );
   }
 }

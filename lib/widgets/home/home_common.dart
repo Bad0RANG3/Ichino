@@ -99,56 +99,14 @@ class HomeSectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          SectionTitle(title: title),
           const SizedBox(height: 14),
           for (final (label, value) in rows)
-            _InfoRow(label: label, value: value),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _InfoRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 110,
-            child: Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value.isEmpty ? '-' : value,
-              style: theme.textTheme.bodyMedium,
-            ),
-          ),
+            AppInfoRow(label: label, value: value),
         ],
       ),
     );
@@ -163,18 +121,11 @@ class HomeStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            AppStrings.status,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          const SectionTitle(title: AppStrings.status),
           const SizedBox(height: 14),
           ...chips,
         ],
@@ -194,8 +145,8 @@ class HomeStatusChip extends StatelessWidget {
     this.label,
     this.value, {
     super.key,
-    this.trueText = 'Yes',
-    this.falseText = 'No',
+    this.trueText = AppStrings.yes,
+    this.falseText = AppStrings.no,
   });
 
   @override
@@ -212,31 +163,19 @@ class HomeStatusChip extends StatelessWidget {
       color = theme.colorScheme.onSurface;
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 110,
-            child: Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              text,
-              style: theme.textTheme.labelSmall?.copyWith(color: color),
-            ),
-          ),
-        ],
+    return AppInfoRow(
+      label: label,
+      value: text,
+      trailing: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          text,
+          style: theme.textTheme.labelSmall?.copyWith(color: color),
+        ),
       ),
     );
   }

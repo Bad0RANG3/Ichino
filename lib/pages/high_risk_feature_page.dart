@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../config/strings.dart';
 import '../config/title_server_config.dart';
+import '../widgets/app_card.dart';
 import '../widgets/cooldown_mixin.dart';
-import '../widgets/risk/risk_widgets.dart';
-import 'collectibles_page.dart';
+import '../widgets/risk/risk_page_scaffold.dart';
 import 'kaleidx_scope_page.dart';
 import 'map_traverse_page.dart';
+import 'music_risk_feature_page.dart';
+import 'music_risk_feature_view.dart';
 import 'number_patch_page.dart';
 import 'travel_partner_page.dart';
-import 'unlock_music_page.dart';
 
 /// 高危功能中转页：导航到解锁歌曲 / 收藏品获取 / 旅行伙伴 / 数值修改。
 /// 各 feature 互相独立，执行流程互不影响。
@@ -51,35 +52,35 @@ class _HighRiskFeaturePageState extends State<HighRiskFeaturePage>
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
   }
 
+  /// 解锁歌曲与收藏品共用同一个页面，只有 [mode] 不同。
+  Widget _musicFeature(MusicRiskFeatureMode mode) => MusicRiskFeaturePage(
+        mode: mode,
+        userId: widget.userId,
+        cookies: widget.cookies,
+        loginDateTime: widget.loginDateTime,
+        loginId: widget.loginId,
+        lastLoginDate: widget.lastLoginDate,
+        onExitToTitle: widget.onExitToTitle,
+      );
+
   /// 中转页只是导航入口，七张卡片的差异只有图标、文案和目标页，
   /// 用一张表驱动，避免七份几乎相同的 `Navigator.push`。
   List<({IconData icon, String title, String desc, Widget page})> get _entries {
+    const unlock = MusicRiskFeatureMode.unlockMusic;
+    const collectibles = MusicRiskFeatureMode.collectibles;
+
     return [
       (
         icon: Icons.lock_open,
-        title: AppStrings.unlockFeatureTitle,
-        desc: AppStrings.unlockFeatureDesc,
-        page: UnlockMusicPage(
-          userId: widget.userId,
-          cookies: widget.cookies,
-          loginDateTime: widget.loginDateTime,
-          loginId: widget.loginId,
-          lastLoginDate: widget.lastLoginDate,
-          onExitToTitle: widget.onExitToTitle,
-        ),
+        title: unlock.title,
+        desc: unlock.description,
+        page: _musicFeature(unlock),
       ),
       (
         icon: Icons.card_giftcard,
-        title: AppStrings.collectiblesFeatureTitle,
-        desc: AppStrings.collectiblesFeatureDesc,
-        page: CollectiblesPage(
-          userId: widget.userId,
-          cookies: widget.cookies,
-          loginDateTime: widget.loginDateTime,
-          loginId: widget.loginId,
-          lastLoginDate: widget.lastLoginDate,
-          onExitToTitle: widget.onExitToTitle,
-        ),
+        title: collectibles.title,
+        desc: collectibles.description,
+        page: _musicFeature(collectibles),
       ),
       (
         icon: Icons.workspace_premium_outlined,
@@ -155,29 +156,23 @@ class _HighRiskFeaturePageState extends State<HighRiskFeaturePage>
     }
 
     final entries = _entries;
-    return RiskPageBody(
-      children: [
-        RiskStatusNotices(
-          isLoggedIn: isLoggedIn,
-          cooldownRemaining: cooldownRemaining,
-          notLoggedInText: AppStrings.musicRiskHubNotLoggedIn,
-          cooldownText: AppStrings.musicRiskHubCooldownNotice,
-        ),
-        const RiskFeatureCard(
-          icon: Icons.warning_amber_rounded,
-          title: AppStrings.musicRiskHubTitle,
-          description: AppStrings.musicRiskHubDesc,
-          danger: true,
-        ),
-        for (var i = 0; i < entries.length; i++) ...[
-          const SizedBox(height: 12),
+    return RiskFeatureScaffold(
+      isLoggedIn: isLoggedIn,
+      cooldownRemaining: cooldownRemaining,
+      notLoggedInMessage: AppStrings.musicRiskHubNotLoggedIn,
+      cooldownNotice: AppStrings.musicRiskHubCooldownNotice,
+      featureIcon: Icons.warning_amber_rounded,
+      featureTitle: AppStrings.musicRiskHubTitle,
+      featureDescription: AppStrings.musicRiskHubDesc,
+      danger: true,
+      cards: [
+        for (final entry in entries)
           _NavCard(
-            icon: entries[i].icon,
-            title: entries[i].title,
-            desc: entries[i].desc,
-            onTap: () => _push(entries[i].page),
+            icon: entry.icon,
+            title: entry.title,
+            desc: entry.desc,
+            onTap: () => _push(entry.page),
           ),
-        ],
       ],
     );
   }
@@ -199,51 +194,39 @@ class _NavCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: theme.colorScheme.outline.withValues(alpha: 0.3),
-        ),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Icon(icon, size: 28, color: theme.colorScheme.primary),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      desc,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+    return AppCard(
+      padding: const EdgeInsets.all(16),
+      onTap: onTap,
+      child: Row(
+        children: [
+          Icon(icon, size: 28, color: theme.colorScheme.primary),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.chevron_right,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  desc,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+          const SizedBox(width: 8),
+          Icon(
+            Icons.chevron_right,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ],
       ),
     );
   }

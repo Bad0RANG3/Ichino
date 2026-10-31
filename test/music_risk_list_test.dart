@@ -28,8 +28,6 @@ Future<void> _pumpView(WidgetTester tester, MusicRiskFeatureMode mode) async {
           loginDateTime: 1,
           loginId: 2,
           mode: mode,
-          featureTitle: 't',
-          featureDesc: 'd',
           onExitToTitle: () async {},
         ),
       ),

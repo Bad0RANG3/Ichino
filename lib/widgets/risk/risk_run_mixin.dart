@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../config/strings.dart';
 import '../../config/title_server_config.dart';
 import '../../services/title_api_service.dart';
+import '../app_notice.dart';
 import '../step_progress.dart';
 
 /// 高危功能共用的执行状态：发包中、自动退登、阶段与错误。
@@ -16,6 +17,9 @@ mixin RiskRunMixin<T extends StatefulWidget> on State<T> {
   RiskStep riskStep = RiskStep.idle;
   String riskStepMessage = '';
   String? riskError;
+
+  /// 由 [CooldownMixin] 提供；页面同时混入两者，这里只做声明。
+  int get cooldownRemaining;
 
   void updateRiskStep(RiskStep step, [String? message]) {
     if (!mounted) return;
@@ -69,6 +73,56 @@ mixin RiskRunMixin<T extends StatefulWidget> on State<T> {
     updateRiskStep(RiskStep.logout, AppStrings.exitingToTitle);
     await onExitToTitle();
   }
+
+  /// 执行前的统一门禁：不通过时直接弹提示并返回 `false`。
+  ///
+  /// 各页原来都要写一遍「算 guard → 判空 → snack」，现在只剩这一行。
+  bool ensureRiskReady({
+    required int? loginDateTime,
+    required int? loginId,
+    required String notLoggedInMessage,
+    required String Function(int remaining) cooldownNotice,
+    bool requireLoginId = true,
+  }) {
+    final message = riskPreconditionError(
+      loginDateTime: loginDateTime,
+      loginId: loginId,
+      cooldownRemaining: cooldownRemaining,
+      notLoggedInMessage: notLoggedInMessage,
+      cooldownNotice: cooldownNotice,
+      requireLoginId: requireLoginId,
+    );
+    if (message == null) return true;
+    riskSnack(message);
+    return false;
+  }
+
+  /// 拉取服务器数据的统一外壳：自动维护 `riskFetching`，失败时提示
+  /// 「数据加载失败」。[onError] 用于需要把错误显示在卡片里的页面。
+  Future<bool> runRiskFetch(
+    Future<void> Function() load, {
+    void Function(Object error)? onError,
+  }) async {
+    setRiskFetching(true);
+    try {
+      await load();
+      return true;
+    } catch (e) {
+      if (!mounted) return false;
+      final message = '${AppStrings.loadFailed}: ${describeApiError(e)}';
+      if (onError == null) {
+        riskSnack(message);
+      } else {
+        onError(e);
+      }
+      return false;
+    } finally {
+      if (mounted) setRiskFetching(false);
+    }
+  }
+
+  /// 统一的底部提示。
+  void riskSnack(String message) => context.showSnack(message);
 }
 
 /// 执行前的统一门禁，顺序固定为「配置 → 登录态 → 冷却」。

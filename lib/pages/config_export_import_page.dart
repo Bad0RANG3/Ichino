@@ -3,9 +3,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../config/responsive.dart';
 import '../config/strings.dart';
 import '../config/title_server_config.dart';
+import '../widgets/app_button.dart';
+import '../widgets/app_page.dart';
 
 class ConfigExportImportPage extends StatelessWidget {
   const ConfigExportImportPage({super.key});
@@ -71,41 +72,26 @@ class ConfigExportImportPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text(AppStrings.configExportImport),
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: responsiveBody(
-            context,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                FilledButton.icon(
-                  onPressed: () => _exportConfig(context),
-                  icon: const Icon(Icons.upload, size: 20),
-                  label: const Text(AppStrings.exportConfig),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  onPressed: () => _importConfig(context),
-                  icon: const Icon(Icons.download, size: 20),
-                  label: const Text(AppStrings.importConfig),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ],
+      body: AppPageBody(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppButton(
+              label: AppStrings.exportConfig,
+              icon: Icons.upload,
+              verticalPadding: 16,
+              onPressed: () => _exportConfig(context),
             ),
-          ),
+            const SizedBox(height: 16),
+            AppOutlinedButton(
+              label: AppStrings.importConfig,
+              icon: Icons.download,
+              verticalPadding: 16,
+              onPressed: () => _importConfig(context),
+            ),
+          ],
         ),
       ),
     );

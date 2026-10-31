@@ -1,101 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../../config/responsive.dart';
 import '../app_card.dart';
-import '../app_notice.dart';
-
-/// 尚未配置 Title Server 时的占位视图。
-class RiskConfigMissingView extends StatelessWidget {
-  final String message;
-
-  const RiskConfigMissingView({
-    super.key,
-    required this.message,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.settings_ethernet,
-              size: 48,
-              color: theme.colorScheme.primary,
-            ),
-            const SizedBox(height: 16),
-            Text(message, style: theme.textTheme.titleMedium),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 高危页统一的滚动容器与内边距。
-class RiskPageBody extends StatelessWidget {
-  final List<Widget> children;
-
-  const RiskPageBody({super.key, required this.children});
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: responsiveBody(
-        context,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: children,
-        ),
-      ),
-    );
-  }
-}
-
-/// 未登录 / 冷却横幅。
-class RiskStatusNotices extends StatelessWidget {
-  final bool isLoggedIn;
-  final int cooldownRemaining;
-  final String notLoggedInText;
-  final String Function(int remaining) cooldownText;
-
-  const RiskStatusNotices({
-    super.key,
-    required this.isLoggedIn,
-    required this.cooldownRemaining,
-    required this.notLoggedInText,
-    required this.cooldownText,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (!isLoggedIn)
-          AppNotice(
-            notLoggedInText,
-            error: true,
-            icon: Icons.warning_amber_rounded,
-          ),
-        if (isLoggedIn && cooldownRemaining > 0)
-          AppNotice(
-            cooldownText(cooldownRemaining),
-            icon: Icons.timer_outlined,
-          ),
-      ],
-    );
-  }
-}
 
 /// 功能说明卡。[danger] 用于高危中转页的红色警示卡。
+///
+/// 页面级骨架（未登录提示 / 说明卡 / 自动退登 / 执行按钮 / 阶段卡）在
+/// `risk_page_scaffold.dart` 里，见 [RiskFeatureScaffold]。
 class RiskFeatureCard extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
   final String title;
   final String? description;
   final Widget? child;

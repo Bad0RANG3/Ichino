@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../config/responsive.dart';
 import '../config/strings.dart';
 import '../models/session_model.dart';
 import '../models/session_share.dart';
 import '../services/file_picker_service.dart';
 import '../services/qr_service.dart';
 import '../services/title_api_service.dart';
+import '../widgets/app_button.dart';
+import '../widgets/app_card.dart';
 import '../widgets/app_notice.dart';
+import '../widgets/app_page.dart';
 import 'home_page.dart';
 import 'settings_page.dart';
 
@@ -177,160 +179,106 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ],
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
-          child: responsiveBody(
-            context,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+      body: AppPageBody(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.qr_code_scanner,
+              size: 64,
+              color: theme.colorScheme.primary,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              AppStrings.appTitle,
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 48),
+            _qrCard(theme),
+            const SizedBox(height: 28),
+            if (isRestore)
+              const AppNotice(
+                AppStrings.sessionShareDetected,
+                icon: Icons.science_outlined,
+              ),
+            Row(
               children: [
-                Icon(
-                  Icons.qr_code_scanner,
-                  size: 64,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  AppStrings.appTitle,
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.primary,
+                Expanded(
+                  child: AppOutlinedButton(
+                    label: AppStrings.uploadQR,
+                    icon: Icons.image,
+                    onPressed: _loading ? null : _onUploadQR,
                   ),
                 ),
-                const SizedBox(height: 48),
-
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(
-                      color: theme.colorScheme.outline.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.key,
-                              size: 18,
-                              color: theme.colorScheme.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              AppStrings.qrCodeToken,
-                              style: theme.textTheme.labelLarge?.copyWith(
-                                color: theme.colorScheme.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _qrController,
-                          maxLines: 3,
-                          onChanged: _onQRContentChanged,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontFamily: 'monospace',
-                            letterSpacing: 0.5,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: AppStrings.qrHint,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            contentPadding: const EdgeInsets.all(14),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 28),
-
-                if (isRestore)
-                  const AppNotice(
-                    AppStrings.sessionShareDetected,
-                    icon: Icons.science_outlined,
-                  ),
-
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _loading ? null : _onUploadQR,
-                        icon: const Icon(Icons.image, size: 20),
-                        label: const Text(AppStrings.uploadQR),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: isRestore
-                            ? (_loading ? null : _onRestoreSession)
-                            : (_rawInput.isNotEmpty && !_loading)
-                            ? _onLogin
-                            : null,
-                        icon: _loading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : Icon(
-                                isRestore ? Icons.link : Icons.arrow_forward,
-                                size: 20,
-                              ),
-                        label: Text(
-                          isRestore
-                              ? (_loading
-                                    ? AppStrings.restoringSession
-                                    : AppStrings.restoreSession)
-                              : (_loading
-                                    ? AppStrings.loggingIn
-                                    : AppStrings.login),
-                        ),
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                if (!isRestore)
-                  CheckboxListTile(
-                    value: _forcePreviewApi,
-                    onChanged: (v) =>
-                        setState(() => _forcePreviewApi = v ?? false),
-                    title: const Text(AppStrings.forcePreviewApi),
-                    controlAffinity: ListTileControlAffinity.leading,
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                  ),
+                const SizedBox(width: 16),
+                Expanded(child: _primaryButton(isRestore)),
               ],
             ),
-          ),
+            const SizedBox(height: 16),
+            if (!isRestore)
+              CheckboxListTile(
+                value: _forcePreviewApi,
+                onChanged: (v) => setState(() => _forcePreviewApi = v ?? false),
+                title: const Text(AppStrings.forcePreviewApi),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+              ),
+          ],
         ),
       ),
+    );
+  }
+
+  /// QR 令牌输入卡。
+  Widget _qrCard(ThemeData theme) {
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(icon: Icons.key, title: AppStrings.qrCodeToken),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _qrController,
+            maxLines: 3,
+            onChanged: _onQRContentChanged,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontFamily: 'monospace',
+              letterSpacing: 0.5,
+            ),
+            decoration: InputDecoration(
+              hintText: AppStrings.qrHint,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              contentPadding: const EdgeInsets.all(14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 主按钮：粘贴的是连接信息时变成「恢复会话」，否则是「登录」。
+  Widget _primaryButton(bool isRestore) {
+    final label = isRestore
+        ? (_loading ? AppStrings.restoringSession : AppStrings.restoreSession)
+        : (_loading ? AppStrings.loggingIn : AppStrings.login);
+    final enabled = isRestore
+        ? !_loading
+        : (_rawInput.isNotEmpty && !_loading);
+
+    return AppButton(
+      label: label,
+      icon: isRestore ? Icons.link : Icons.arrow_forward,
+      busy: _loading,
+      onPressed: enabled
+          ? (isRestore ? _onRestoreSession : _onLogin)
+          : null,
     );
   }
 }

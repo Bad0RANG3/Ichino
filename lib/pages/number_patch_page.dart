@@ -1,14 +1,13 @@
-
 import 'package:flutter/material.dart';
 
 import '../config/strings.dart';
 import '../core/json_value.dart';
 import '../models/session_model.dart';
-import '../services/title_api_service.dart';
 import '../services/user_all_payload_builder.dart';
 import '../widgets/app_card.dart';
-import '../widgets/app_notice.dart';
 import '../widgets/cooldown_mixin.dart';
+import '../widgets/risk/risk_list_widgets.dart';
+import '../widgets/risk/risk_page_scaffold.dart';
 import '../widgets/risk/risk_run_mixin.dart';
 import '../widgets/risk/risk_widgets.dart';
 import '../widgets/step_progress.dart';
@@ -117,8 +116,6 @@ class _NumberPatchViewState extends State<NumberPatchView>
     super.dispose();
   }
 
-  void _snack(String message) => context.showSnack(message);
-
   /// 从已拉取的 GetUserDataApi 里读当前值，供「累加」和界面上的当前值展示。
   int _currentOf(Map<String, Map<String, dynamic>> data, String field) {
     final userData = data['GetUserDataApi']?['userData'];
@@ -165,37 +162,26 @@ class _NumberPatchViewState extends State<NumberPatchView>
       cookies: widget.cookies,
     );
     if (service == null) return;
-    setRiskFetching(true);
 
-    try {
+    await runRiskFetch(() async {
       final data = await service.fetchUserAllData(widget.userId);
       if (!mounted) return;
-      setState(() {
-        _userAllData = data;
-        riskFetching = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => riskFetching = false);
-      _snack('${AppStrings.loadFailed}: ${describeApiError(e)}');
-    }
+      setState(() => _userAllData = data);
+    });
   }
 
   Future<void> _run() async {
-    final guard = riskPreconditionError(
+    if (!ensureRiskReady(
       loginDateTime: widget.loginDateTime,
       loginId: widget.loginId,
-      cooldownRemaining: cooldownRemaining,
       notLoggedInMessage: AppStrings.numberPatchNotLoggedIn,
       cooldownNotice: AppStrings.numberPatchCooldownNotice,
-    );
-    if (guard != null) {
-      _snack(guard);
+    )) {
       return;
     }
     final inputError = _checkInput();
     if (inputError != null) {
-      _snack(inputError);
+      riskSnack(inputError);
       return;
     }
     final input = int.parse(_valueController.text.trim());
@@ -256,58 +242,37 @@ class _NumberPatchViewState extends State<NumberPatchView>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return RiskPageBody(
-      children: [
-        RiskStatusNotices(
-          isLoggedIn: isLoggedIn,
-          cooldownRemaining: cooldownRemaining,
-          notLoggedInText: AppStrings.numberPatchNotLoggedIn,
-          cooldownText: AppStrings.numberPatchCooldownNotice,
-        ),
-        RiskFeatureCard(
-          icon: _isRating ? Icons.speed : Icons.commute,
-          title: widget.featureTitle,
-          description: widget.featureDesc,
-        ),
-        const SizedBox(height: 12),
-        _inputCard(theme),
-        const SizedBox(height: 12),
-        _fetchCard(),
-        const SizedBox(height: 12),
-        AutoLogoutToggle(
-          value: riskAutoLogout,
-          enabled: widget.onExitToTitle != null && !riskRunning,
-          onChanged: setRiskAutoLogout,
-        ),
-        const SizedBox(height: 12),
-        RiskRunButton(
-          running: riskRunning,
-          enabled: isLoggedIn,
-          icon: Icons.send,
-          label: AppStrings.numberPatchRun,
-          runningLabel: AppStrings.unlockRunning,
-          onPressed: _run,
-        ),
-        if (riskStep != RiskStep.idle) ...[
-          const SizedBox(height: 16),
-          StepProgressCard(
-            step: riskStep,
-            message: riskStepMessage,
-            error: riskError,
-            steps: [
-              (RiskStep.fetchData, AppStrings.unlockStepFetch),
-              (RiskStep.upload, AppStrings.numberPatchStepUpload),
-              if (riskAutoLogout) (RiskStep.logout, AppStrings.stepLogout),
-            ],
-          ),
-        ],
+    return RiskFeatureScaffold(
+      isLoggedIn: isLoggedIn,
+      cooldownRemaining: cooldownRemaining,
+      notLoggedInMessage: AppStrings.numberPatchNotLoggedIn,
+      cooldownNotice: AppStrings.numberPatchCooldownNotice,
+      featureIcon: _isRating ? Icons.speed : Icons.commute,
+      featureTitle: widget.featureTitle,
+      featureDescription: widget.featureDesc,
+      cards: [_inputCard(), _fetchCard()],
+      autoLogout: riskAutoLogout,
+      autoLogoutEnabled: widget.onExitToTitle != null,
+      onAutoLogoutChanged: setRiskAutoLogout,
+      running: riskRunning,
+      runEnabled: isLoggedIn,
+      runIcon: Icons.send,
+      runLabel: AppStrings.numberPatchRun,
+      runningLabel: AppStrings.running,
+      onRun: _run,
+      step: riskStep,
+      stepMessage: riskStepMessage,
+      stepError: riskError,
+      steps: [
+        (RiskStep.fetchData, AppStrings.unlockStepFetch),
+        (RiskStep.upload, AppStrings.numberPatchStepUpload),
+        if (riskAutoLogout) (RiskStep.logout, AppStrings.stepLogout),
       ],
     );
   }
 
-  Widget _inputCard(ThemeData theme) {
+  Widget _inputCard() {
+    final theme = Theme.of(context);
     final enabled = !riskRunning;
     final hasInput = int.tryParse(_valueController.text.trim()) != null;
 
@@ -315,36 +280,24 @@ class _NumberPatchViewState extends State<NumberPatchView>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextField(
+          RiskNumberField(
             controller: _valueController,
+            label: _isRating
+                ? AppStrings.ratingValueLabel
+                : AppStrings.maiMileValueLabel,
+            hint: _isRating
+                ? AppStrings.ratingValueHint
+                : AppStrings.maiMileValueHint,
+            helperText: AppStrings.numberPatchRangeHint(_min, _max),
             enabled: enabled,
-            keyboardType: TextInputType.number,
             onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              labelText: _isRating
-                  ? AppStrings.ratingValueLabel
-                  : AppStrings.maiMileValueLabel,
-              hintText: _isRating
-                  ? AppStrings.ratingValueHint
-                  : AppStrings.maiMileValueHint,
-              helperText: AppStrings.numberPatchRangeHint(_min, _max),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              contentPadding: const EdgeInsets.all(14),
-            ),
           ),
           if (!_isRating) ...[
             const SizedBox(height: 12),
-            DropdownButtonFormField<int>(
-              initialValue: _maiMileAdd ? 1 : 0,
-              decoration: InputDecoration(
-                labelText: AppStrings.maiMileModeLabel,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                contentPadding: const EdgeInsets.all(14),
-              ),
+            RiskDropdownField<int>(
+              value: _maiMileAdd ? 1 : 0,
+              label: AppStrings.maiMileModeLabel,
+              enabled: enabled,
               items: [
                 DropdownMenuItem(
                   value: 1,
@@ -361,9 +314,7 @@ class _NumberPatchViewState extends State<NumberPatchView>
                   ),
                 ),
               ],
-              onChanged: enabled
-                  ? (v) => setState(() => _maiMileAdd = (v ?? 1) == 1)
-                  : null,
+              onChanged: (v) => setState(() => _maiMileAdd = v == 1),
             ),
           ],
           // 累加要基于服务器上的当前余额，没拉取数据前预览不了，就别猜一个 0。
@@ -398,10 +349,9 @@ class _NumberPatchViewState extends State<NumberPatchView>
 
     return RiskFetchCard(
       hasData: hasData,
-      statusText: hasData ? '$label: $current' : AppStrings.unlockNoData,
-      loadingLabel: AppStrings.unlockFetching,
-      actionLabel:
-          hasData ? AppStrings.unlockRefetch : AppStrings.unlockFetchData,
+      statusText: hasData ? '$label: $current' : AppStrings.fetchNotFetched,
+      loadingLabel: AppStrings.fetching,
+      actionLabel: hasData ? AppStrings.refetch : AppStrings.fetchData,
       loading: riskFetching,
       enabled: !riskRunning,
       onFetch: _fetchData,

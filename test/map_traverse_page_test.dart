@@ -46,7 +46,7 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text(AppStrings.mapIdLabel), findsOneWidget);
     expect(find.text(AppStrings.mapCollectiblesNotice), findsOneWidget);
-    expect(find.text(AppStrings.mapNoData), findsOneWidget);
+    expect(find.text(AppStrings.fetchNotFetched), findsOneWidget);
   });
 
   testWidgets('添加区域 ID 后进入待处理列表，重复添加被拒', (tester) async {

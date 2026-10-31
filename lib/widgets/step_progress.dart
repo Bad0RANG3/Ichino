@@ -58,7 +58,8 @@ class StepProgressCard extends StatelessWidget {
                   : theme.colorScheme.onSurface,
             ),
           ],
-          if (error != null) ...[
+          // 失败时 message 与 error 常常是同一句话，别在卡片里显示两遍。
+          if (error != null && error != message) ...[
             const SizedBox(height: 12),
             _banner(
               theme,

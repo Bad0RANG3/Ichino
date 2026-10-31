@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../config/responsive.dart';
 import '../config/strings.dart';
 import '../widgets/app_card.dart';
 import '../widgets/app_notice.dart';
+import '../widgets/app_page.dart';
 
 class AboutPage extends StatelessWidget {
   const AboutPage({super.key});
@@ -12,12 +12,10 @@ class AboutPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return SingleChildScrollView(
+    return AppPageBody(
       padding: const EdgeInsets.all(24),
-      child: responsiveBody(
-        context,
-        child: Column(
-          children: [
+      child: Column(
+        children: [
             const SizedBox(height: 24),
             Icon(
               Icons.qr_code_scanner,
@@ -49,14 +47,16 @@ class AboutPage extends StatelessWidget {
                     title: AppStrings.aboutBasics,
                   ),
                   const SizedBox(height: 14),
-                  _row(theme, AppStrings.creditBuiltWith, 'Flutter'),
-                  _row(
-                    theme,
-                    AppStrings.aboutPlatforms,
-                    'Android · iOS · Windows · macOS · Linux',
+                  AppInfoRow(label: AppStrings.creditBuiltWith, value: 'Flutter'),
+                  AppInfoRow(
+                    label: AppStrings.aboutPlatforms,
+                    value: 'Android · iOS · Windows · macOS · Linux',
                   ),
-                  _row(theme, AppStrings.aboutPackageId, 'dev.naominet.ichino'),
-                  _row(theme, AppStrings.creditLicense, 'MIT'),
+                  AppInfoRow(
+                    label: AppStrings.aboutPackageId,
+                    value: 'dev.naominet.ichino',
+                  ),
+                  AppInfoRow(label: AppStrings.creditLicense, value: 'MIT'),
                 ],
               ),
             ),
@@ -70,10 +70,19 @@ class AboutPage extends StatelessWidget {
                     title: AppStrings.credits,
                   ),
                   const SizedBox(height: 14),
-                  _row(theme, AppStrings.creditProtocol, 'empurple · eaquira'),
-                  _row(theme, AppStrings.creditB50, 'Empurple'),
-                  _row(theme, AppStrings.creditQRDecode, '原生 MethodChannel'),
-                  _row(theme, AppStrings.creditIconAssets, 'assets2.lxns.net'),
+                  AppInfoRow(
+                    label: AppStrings.creditProtocol,
+                    value: 'empurple · eaquira',
+                  ),
+                  AppInfoRow(label: AppStrings.creditB50, value: 'Empurple'),
+                  AppInfoRow(
+                    label: AppStrings.creditQRDecode,
+                    value: '原生 MethodChannel',
+                  ),
+                  AppInfoRow(
+                    label: AppStrings.creditIconAssets,
+                    value: 'assets2.lxns.net',
+                  ),
                 ],
               ),
             ),
@@ -83,28 +92,6 @@ class AboutPage extends StatelessWidget {
               icon: Icons.warning_amber_rounded,
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _row(ThemeData theme, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 104,
-            child: Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-          Expanded(child: Text(value, style: theme.textTheme.bodyMedium)),
-        ],
       ),
     );
   }

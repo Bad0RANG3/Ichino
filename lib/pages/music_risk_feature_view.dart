@@ -5,11 +5,10 @@ import '../config/title_server_config.dart';
 import '../models/session_model.dart';
 import '../services/title_api_service.dart';
 import '../services/user_all_payload_builder.dart';
-import '../widgets/app_card.dart';
-import '../widgets/app_notice.dart';
 import '../widgets/cooldown_mixin.dart';
 import '../widgets/risk/music_risk_editors.dart';
 import '../widgets/risk/risk_list_widgets.dart';
+import '../widgets/risk/risk_page_scaffold.dart';
 import '../widgets/risk/risk_run_mixin.dart';
 import '../widgets/risk/risk_widgets.dart';
 import '../widgets/step_progress.dart';
@@ -29,6 +28,25 @@ enum MusicRiskFeatureMode {
   collectibles,
 }
 
+/// 两种模式只是文案不同，页面外壳与卡片都从 [MusicRiskFeatureMode] 取字，
+/// 免得标题、说明、未登录提示三处在每个调用点各传一遍。
+extension MusicRiskFeatureModeText on MusicRiskFeatureMode {
+  bool get isUnlock => this == MusicRiskFeatureMode.unlockMusic;
+
+  String get title =>
+      isUnlock ? AppStrings.unlockFeatureTitle : AppStrings.collectiblesFeatureTitle;
+
+  String get description =>
+      isUnlock ? AppStrings.unlockFeatureDesc : AppStrings.collectiblesFeatureDesc;
+
+  String get notLoggedInMessage =>
+      isUnlock ? AppStrings.unlockNotLoggedIn : AppStrings.collectiblesNotLoggedIn;
+
+  String cooldownNotice(int remaining) => isUnlock
+      ? AppStrings.unlockCooldownNotice(remaining)
+      : AppStrings.collectiblesCooldownNotice(remaining);
+}
+
 class MusicRiskFeatureView extends StatefulWidget {
   final int userId;
   final String? cookies;
@@ -46,8 +64,6 @@ class MusicRiskFeatureView extends StatefulWidget {
   final Future<void> Function()? onExitToTitle;
 
   final MusicRiskFeatureMode mode;
-  final String featureTitle;
-  final String featureDesc;
 
   const MusicRiskFeatureView({
     super.key,
@@ -58,8 +74,6 @@ class MusicRiskFeatureView extends StatefulWidget {
     this.lastLoginDate,
     this.onExitToTitle,
     this.mode = MusicRiskFeatureMode.unlockMusic,
-    required this.featureTitle,
-    required this.featureDesc,
   });
 
   @override
@@ -78,17 +92,15 @@ class _MusicRiskFeatureViewState extends State<MusicRiskFeatureView>
   Map<String, Map<String, dynamic>>? _userAllData;
   String? _fetchError;
 
-  bool get _isUnlock => widget.mode == MusicRiskFeatureMode.unlockMusic;
+  bool get _isUnlock => widget.mode.isUnlock;
 
   @override
   int? get cooldownLoginDateTime => widget.loginDateTime;
 
-  void _snack(String message) => context.showSnack(message);
-
   /// 加入待提交收藏品；重复时提示并保留输入。
   bool _addItem(PendingItem item) {
     if (_pendingItems.any((e) => e.kind == item.kind && e.id == item.id)) {
-      _snack(AppStrings.listDuplicate);
+      riskSnack(AppStrings.listDuplicate);
       return false;
     }
     setState(() => _pendingItems.add(item));
@@ -98,7 +110,7 @@ class _MusicRiskFeatureViewState extends State<MusicRiskFeatureView>
   /// 加入待解锁歌曲；重复时提示并保留输入。
   bool _addMusic(PendingMusic music) {
     if (_pendingMusics.any((e) => e.musicId == music.musicId)) {
-      _snack(AppStrings.listDuplicate);
+      riskSnack(AppStrings.listDuplicate);
       return false;
     }
     setState(() => _pendingMusics.add(music));
@@ -157,42 +169,32 @@ class _MusicRiskFeatureViewState extends State<MusicRiskFeatureView>
     if (service == null) return;
 
     setState(() {
-      riskFetching = true;
       _fetchError = null;
       _userAllData = null;
     });
 
-    try {
-      final data = await service.fetchUserAllData(widget.userId);
-      if (!mounted) return;
-      setState(() {
-        _userAllData = data;
-        riskFetching = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _fetchError = describeApiError(e);
-        riskFetching = false;
-      });
-    }
+    await runRiskFetch(
+      () async {
+        final data = await service.fetchUserAllData(widget.userId);
+        if (!mounted) return;
+        setState(() => _userAllData = data);
+      },
+      onError: (e) => setState(() => _fetchError = describeApiError(e)),
+    );
   }
 
   Future<void> _run() async {
     final validationError = _validateInputs();
     if (validationError != null) {
-      _snack(validationError);
+      riskSnack(validationError);
       return;
     }
-    final guard = riskPreconditionError(
+    if (!ensureRiskReady(
       loginDateTime: widget.loginDateTime,
       loginId: widget.loginId,
-      cooldownRemaining: cooldownRemaining,
       notLoggedInMessage: _notLoggedInMessage,
       cooldownNotice: _cooldownNotice,
-    );
-    if (guard != null) {
-      _snack(guard);
+    )) {
       return;
     }
 
@@ -319,25 +321,20 @@ class _MusicRiskFeatureViewState extends State<MusicRiskFeatureView>
       );
     }
 
-    return RiskPageBody(
-      children: [
-        RiskStatusNotices(
-          isLoggedIn: isLoggedIn,
-          cooldownRemaining: cooldownRemaining,
-          notLoggedInText: _notLoggedInMessage,
-          cooldownText: _cooldownNotice,
-        ),
-        RiskFeatureCard(
-          icon: _isUnlock ? Icons.lock_open : Icons.card_giftcard,
-          title: widget.featureTitle,
-          description: widget.featureDesc,
-        ),
-        const SizedBox(height: 12),
+    return RiskFeatureScaffold(
+      isLoggedIn: isLoggedIn,
+      cooldownRemaining: cooldownRemaining,
+      notLoggedInMessage: _notLoggedInMessage,
+      cooldownNotice: _cooldownNotice,
+      featureIcon: _isUnlock ? Icons.lock_open : Icons.card_giftcard,
+      featureTitle: widget.mode.title,
+      featureDescription: widget.mode.description,
+      cards: [
         if (_isUnlock)
           UnlockMusicEditorCard(
             enabled: !riskRunning,
             onAdd: _addMusic,
-            onError: _snack,
+            onError: riskSnack,
             pendingList: _buildUnlockPendingList(),
             showDxNotice: _pendingMusics.any((m) => m.isDeluxeRange),
           )
@@ -345,37 +342,39 @@ class _MusicRiskFeatureViewState extends State<MusicRiskFeatureView>
           CollectiblesEditorCard(
             enabled: !riskRunning,
             onAdd: _addItem,
-            onError: _snack,
+            onError: riskSnack,
             pendingList: _buildCollectiblesPendingList(),
           ),
-        const SizedBox(height: 12),
         _buildFetchCard(),
-        const SizedBox(height: 12),
-        AutoLogoutToggle(
-          value: riskAutoLogout,
-          enabled: widget.onExitToTitle != null && !riskRunning,
-          onChanged: setRiskAutoLogout,
+      ],
+      autoLogout: riskAutoLogout,
+      autoLogoutEnabled: widget.onExitToTitle != null,
+      onAutoLogoutChanged: setRiskAutoLogout,
+      running: riskRunning,
+      runEnabled: widget.loginDateTime != null && widget.loginId != null,
+      runIcon: cooldownRemaining > 0
+          ? Icons.timer_outlined
+          : (_isUnlock ? Icons.lock_open : Icons.card_giftcard),
+      runLabel: _isUnlock
+          ? AppStrings.unlockMusicRun
+          : AppStrings.collectiblesRun,
+      runningLabel: AppStrings.running,
+      runDisabledLabel: cooldownRemaining > 0
+          ? AppStrings.ticketCooldownCountdown(cooldownRemaining)
+          : null,
+      onRun: _run,
+      step: riskStep,
+      stepMessage: riskStepMessage,
+      stepError: riskError,
+      steps: [
+        (RiskStep.fetchData, AppStrings.unlockStepFetch),
+        (
+          RiskStep.upload,
+          _isUnlock
+              ? AppStrings.unlockStepUpload
+              : AppStrings.collectiblesStepUpload,
         ),
-        const SizedBox(height: 12),
-        _buildRunButton(),
-        if (riskStep != RiskStep.idle) ...[
-          const SizedBox(height: 16),
-          StepProgressCard(
-            step: riskStep,
-            message: riskStepMessage,
-            error: riskError,
-            steps: [
-              (RiskStep.fetchData, AppStrings.unlockStepFetch),
-              (
-                RiskStep.upload,
-                _isUnlock
-                    ? AppStrings.unlockStepUpload
-                    : AppStrings.collectiblesStepUpload,
-              ),
-              if (riskAutoLogout) (RiskStep.logout, AppStrings.stepLogout),
-            ],
-          ),
-        ],
+        if (riskAutoLogout) (RiskStep.logout, AppStrings.stepLogout),
       ],
     );
   }
@@ -420,35 +419,15 @@ class _MusicRiskFeatureViewState extends State<MusicRiskFeatureView>
 
     return RiskFetchCard(
       hasData: hasData,
-      statusText:
-          hasData ? AppStrings.unlockFetched : AppStrings.unlockNoData,
-      loadingLabel: AppStrings.unlockFetching,
-      actionLabel:
-          hasData ? AppStrings.unlockRefetch : AppStrings.unlockFetchData,
+      statusText: hasData
+          ? AppStrings.fetched
+          : AppStrings.fetchNotFetched,
+      loadingLabel: AppStrings.fetching,
+      actionLabel: hasData ? AppStrings.refetch : AppStrings.fetchData,
       error: _fetchError,
       loading: riskFetching,
       enabled: !riskRunning,
       onFetch: _fetchData,
-    );
-  }
-
-  Widget _buildRunButton() {
-    final onCooldown = cooldownRemaining > 0;
-    final canRun = widget.loginDateTime != null &&
-        widget.loginId != null &&
-        !onCooldown;
-
-    return RiskRunButton(
-      running: riskRunning,
-      enabled: canRun,
-      icon: onCooldown
-          ? Icons.timer_outlined
-          : (_isUnlock ? Icons.lock_open : Icons.card_giftcard),
-      label: _isUnlock ? AppStrings.unlockMusicRun : AppStrings.collectiblesRun,
-      runningLabel: AppStrings.unlockRunning,
-      disabledLabel:
-          onCooldown ? AppStrings.ticketCooldownCountdown(cooldownRemaining) : null,
-      onPressed: _run,
     );
   }
 }

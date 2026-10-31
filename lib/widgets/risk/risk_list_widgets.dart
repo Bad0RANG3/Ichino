@@ -2,6 +2,34 @@ import 'package:flutter/material.dart';
 
 import '../../config/strings.dart';
 
+/// 已添加但尚未提交的 ID 清单：等宽一行 `#1  #2`，为空时显示提示。
+///
+/// 跑图与旅行伙伴原来各写一份同样的 Text + 样式。
+class RiskPendingIds extends StatelessWidget {
+  final List<int> ids;
+  final String emptyHint;
+
+  const RiskPendingIds({
+    super.key,
+    required this.ids,
+    required this.emptyHint,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Text(
+      ids.isEmpty ? emptyHint : ids.map((e) => '#$e').join('  '),
+      style: theme.textTheme.bodySmall?.copyWith(
+        fontFamily: 'monospace',
+        color: ids.isEmpty
+            ? theme.colorScheme.onSurfaceVariant
+            : theme.colorScheme.onSurface,
+      ),
+    );
+  }
+}
+
 /// 全宽的「添加到列表」按钮，样式统一。
 class RiskAddButton extends StatelessWidget {
   final VoidCallback? onPressed;
@@ -157,14 +185,18 @@ class RiskNumberField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
   final String hint;
+  final String? helperText;
   final bool enabled;
+  final ValueChanged<String>? onChanged;
 
   const RiskNumberField({
     super.key,
     required this.controller,
     required this.label,
     required this.hint,
+    this.helperText,
     this.enabled = true,
+    this.onChanged,
   });
 
   @override
@@ -173,9 +205,11 @@ class RiskNumberField extends StatelessWidget {
       controller: controller,
       enabled: enabled,
       keyboardType: TextInputType.number,
+      onChanged: onChanged,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
+        helperText: helperText,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
         ),

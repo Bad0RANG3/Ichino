@@ -6,7 +6,9 @@ import '../../config/title_server_config.dart';
 import '../../models/user_data.dart';
 import '../../models/user_preview.dart';
 import '../../widgets/account_backup_card.dart';
+import '../../widgets/app_button.dart';
 import '../../widgets/app_notice.dart';
+import '../../widgets/app_page.dart';
 import '../../widgets/connection_share_card.dart';
 import '../../widgets/home/home_common.dart';
 import '../../widgets/home/home_debug_card.dart';
@@ -53,8 +55,6 @@ class HomeTabView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     // 开发预览等入口会直接塞入种子数据，此时没配 Title Server 也应该展示。
     if (!TitleServerConfigHolder().isConfigured &&
         userData == null &&
@@ -67,7 +67,7 @@ class HomeTabView extends StatelessWidget {
     }
 
     if (error != null) {
-      return _ErrorView(theme: theme, error: error!, onRetry: onRetry);
+      return _ErrorView(error: error!, onRetry: onRetry);
     }
 
     final data = userData;
@@ -97,95 +97,63 @@ class HomeTabView extends StatelessWidget {
     UserPreviewDataBean preview, {
     required bool showLoginButton,
   }) {
-    final theme = Theme.of(context);
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: responsiveBody(
-        context,
-        child: Column(
-          children: [
-            if (preview.errorId != 0) ErrorIdBanner(errorId: preview.errorId),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.tertiaryContainer.withValues(
-                  alpha: 0.4,
-                ),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                showLoginButton
-                    ? 'Preview API 模式，点击下方按钮登录。'
-                    : AppStrings.inheritedAccountNotice,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onTertiaryContainer,
-                ),
-              ),
+    return AppPageBody(
+      child: Column(
+        children: [
+          if (preview.errorId != 0) ErrorIdBanner(errorId: preview.errorId),
+          AppNotice(
+            showLoginButton
+                ? AppStrings.previewModeNotice
+                : AppStrings.inheritedAccountNotice,
+            icon: showLoginButton ? Icons.login : Icons.science_outlined,
+          ),
+          if (showLoginButton)
+            AppButton(
+              label: AppStrings.login,
+              icon: Icons.login,
+              onPressed: onLogin,
             ),
-            if (showLoginButton) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: onLogin,
-                  icon: const Icon(Icons.login, size: 20),
-                  label: const Text(AppStrings.login),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
+          const SizedBox(height: 12),
+          HomeProfileCard(
+            userName: preview.userName,
+            iconId: preview.iconId,
+            playerRating: preview.playerRating,
+          ),
+          const SizedBox(height: 12),
+          ...responsiveGrid(
+            context: context,
+            children: [
+              PreviewGameInfoCard(preview: preview),
+              PreviewStatusCard(preview: preview),
             ],
+          ),
+          const SizedBox(height: 12),
+          ConnectionShareCard(userId: userId, token: token),
+          if (rawJson != null) ...[
             const SizedBox(height: 12),
-            HomeProfileCard(
-              userName: preview.userName,
-              iconId: preview.iconId,
-              playerRating: preview.playerRating,
-            ),
-            const SizedBox(height: 12),
-            ...responsiveGrid(
-              context: context,
-              children: [
-                PreviewGameInfoCard(preview: preview),
-                PreviewStatusCard(preview: preview),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ConnectionShareCard(userId: userId, token: token),
-            if (rawJson != null) ...[
-              const SizedBox(height: 12),
-              DebugRawJsonCard(rawJson: rawJson!),
-            ],
+            DebugRawJsonCard(rawJson: rawJson!),
           ],
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildFullData(BuildContext context, UserDataBean data) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: responsiveBody(
-        context,
-        child: Column(
-          children: [
-            if (showRestoredNotice)
-              AppNotice(
-                AppStrings.sessionRestoredNotice,
-                icon: Icons.science_outlined,
-              ),
-            HomeProfileCard(
-              userName: data.userName,
-              iconId: data.iconId,
-              playerRating: data.playerRating,
-              highestRating: '${data.highestRating}',
+    return AppPageBody(
+      child: Column(
+        children: [
+          if (showRestoredNotice)
+            AppNotice(
+              AppStrings.sessionRestoredNotice,
+              icon: Icons.science_outlined,
             ),
-            const SizedBox(height: 12),
+          HomeProfileCard(
+            userName: data.userName,
+            iconId: data.iconId,
+            playerRating: data.playerRating,
+            highestRating: '${data.highestRating}',
+          ),
+          const SizedBox(height: 12),
             ...responsiveGrid(
               context: context,
               children: [
@@ -206,7 +174,6 @@ class HomeTabView extends StatelessWidget {
               DebugRawJsonCard(rawJson: rawJson!),
             ],
           ],
-        ),
       ),
     );
   }
@@ -219,88 +186,32 @@ class _ConfigMissingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.settings_ethernet,
-              size: 64,
-              color: theme.colorScheme.primary,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              AppStrings.titleServerNotConfigured,
-              style: theme.textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              AppStrings.titleServerNotConfiguredDesc,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: onOpenSettings,
-              icon: const Icon(Icons.settings, size: 20),
-              label: const Text(AppStrings.openSettings),
-            ),
-          ],
-        ),
-      ),
+    return AppStateView(
+      icon: Icons.settings_ethernet,
+      title: AppStrings.titleServerNotConfigured,
+      description: AppStrings.titleServerNotConfiguredDesc,
+      actionLabel: AppStrings.openSettings,
+      actionIcon: Icons.settings,
+      onAction: onOpenSettings,
     );
   }
 }
 
 class _ErrorView extends StatelessWidget {
-  final ThemeData theme;
   final String error;
   final VoidCallback onRetry;
 
-  const _ErrorView({
-    required this.theme,
-    required this.error,
-    required this.onRetry,
-  });
+  const _ErrorView({required this.error, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 48,
-              color: theme.colorScheme.error,
-            ),
-            const SizedBox(height: 12),
-            Text(AppStrings.loadFailed, style: theme.textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Text(
-              error,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontFamily: 'monospace',
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh, size: 20),
-              label: const Text(AppStrings.retry),
-            ),
-          ],
-        ),
-      ),
+    return AppStateView(
+      icon: Icons.error_outline,
+      title: AppStrings.loadFailed,
+      description: error,
+      error: true,
+      actionLabel: AppStrings.retry,
+      onAction: onRetry,
     );
   }
 }

@@ -39,7 +39,7 @@ class PreviewStatusCard extends StatelessWidget {
           AppStrings.banState,
           preview.banState == 0,
           trueText: AppStrings.clean,
-          falseText: '已封禁 (${preview.banState})',
+          falseText: AppStrings.banned(preview.banState),
         ),
       ],
     );

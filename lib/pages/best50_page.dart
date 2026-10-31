@@ -3,7 +3,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
-import '../config/responsive.dart';
 import '../config/strings.dart';
 import '../config/title_server_config.dart';
 import '../models/session_model.dart';
@@ -12,6 +11,9 @@ import '../services/music_data_service.dart';
 import '../services/png_export_service.dart';
 import '../services/rating_calculator.dart';
 import '../services/title_api_service.dart';
+import '../widgets/app_button.dart';
+import '../widgets/app_notice.dart';
+import '../widgets/app_page.dart';
 import '../widgets/best50_poster.dart';
 
 /// Best 50 成绩图页面：负责取数与导出，海报本身在 `widgets/best50_poster.dart`。
@@ -156,25 +158,29 @@ class _Best50PageState extends State<Best50Page> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
 
     final rating = _rating;
     if (rating == null) {
-      return _StateView(
-        message: _error ?? AppStrings.loadFailed,
-        onRetry: _bootstrap,
+      return AppStateView(
+        icon: Icons.error_outline,
+        title: AppStrings.loadFailed,
+        description: _error,
+        error: true,
+        actionLabel: AppStrings.retry,
+        onAction: _bootstrap,
       );
     }
 
+    // 没有成绩是「空」，不是「错」——这里不该用报错色。
     if (rating.ratingList.isEmpty && rating.newRatingList.isEmpty) {
-      return _StateView(
-        message: AppStrings.best50Empty,
-        onRetry: _bootstrap,
+      return AppStateView(
         icon: Icons.bar_chart_outlined,
+        title: AppStrings.best50Empty,
+        actionLabel: AppStrings.retry,
+        onAction: _bootstrap,
       );
     }
 
@@ -188,44 +194,22 @@ class _Best50PageState extends State<Best50Page> {
     return Scaffold(
       body: Column(
         children: [
-          responsiveBody(
-            context,
+          AppPageBody(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Column(
               children: [
                 if (!_musicReady)
-                  _NoticeBanner(
-                    theme: theme,
-                    text: AppStrings.best50NoMusicData,
+                  const AppNotice(
+                    AppStrings.best50NoMusicData,
+                    icon: Icons.info_outline,
                   ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: _exporting ? null : _export,
-                      icon: _exporting
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.download, size: 20),
-                      label: Text(
-                        _exporting
-                            ? AppStrings.best50Exporting
-                            : AppStrings.best50Export,
-                      ),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
+                AppButton(
+                  label: _exporting
+                      ? AppStrings.best50Exporting
+                      : AppStrings.best50Export,
+                  icon: Icons.download,
+                  busy: _exporting,
+                  onPressed: _export,
                 ),
               ],
             ),
@@ -276,78 +260,6 @@ class _Best50PageState extends State<Best50Page> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// =============================================================================
-// 页面级辅助组件（非海报部分，跟随 Ichino 现有卡片/横幅风格）
-// =============================================================================
-
-class _NoticeBanner extends StatelessWidget {
-  final ThemeData theme;
-  final String text;
-
-  const _NoticeBanner({required this.theme, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.tertiaryContainer.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        text,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onTertiaryContainer,
-        ),
-      ),
-    );
-  }
-}
-
-class _StateView extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-  final IconData icon;
-
-  const _StateView({
-    required this.message,
-    required this.onRetry,
-    this.icon = Icons.error_outline,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 48, color: theme.colorScheme.error),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh, size: 20),
-              label: const Text(AppStrings.retry),
-            ),
-          ],
-        ),
       ),
     );
   }

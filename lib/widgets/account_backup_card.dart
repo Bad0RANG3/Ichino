@@ -5,7 +5,9 @@ import '../config/strings.dart';
 import '../models/session_model.dart';
 import '../services/account_backup_service.dart';
 import '../services/title_api_service.dart';
+import 'app_button.dart';
 import 'app_card.dart';
+import 'app_code_box.dart';
 import 'app_notice.dart';
 
 /// 账号备份：把服务器能读到的用户数据汇成一长串 JSON，可复制到剪贴板。
@@ -98,29 +100,15 @@ class _AccountBackupCardState extends State<AccountBackupCard> {
             ),
           ),
           const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.tonalIcon(
-              onPressed: _running ? null : _run,
-              icon: _running
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.download_outlined, size: 20),
-              label: Text(
-                _running
-                    ? AppStrings.accountBackupRunning(_progress)
-                    : AppStrings.accountBackupRun,
-              ),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 13),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
+          AppButton(
+            label: _running
+                ? AppStrings.accountBackupRunning(_progress)
+                : AppStrings.accountBackupRun,
+            icon: Icons.download_outlined,
+            busy: _running,
+            tonal: true,
+            verticalPadding: 13,
+            onPressed: _run,
           ),
           if (_error != null) ...[
             const SizedBox(height: 12),
@@ -152,26 +140,7 @@ class _AccountBackupCardState extends State<AccountBackupCard> {
                 ),
               ],
             ),
-            Container(
-              width: double.infinity,
-              constraints: const BoxConstraints(maxHeight: 260),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withValues(
-                  alpha: 0.5,
-                ),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: SingleChildScrollView(
-                child: SelectableText(
-                  result.encode(),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-            ),
+            AppCodeBox(text: result.encode()),
             const SizedBox(height: 10),
             Text(
               AppStrings.accountBackupSecurity,

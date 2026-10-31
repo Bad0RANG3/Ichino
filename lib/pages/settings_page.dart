@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../config/responsive.dart';
 import '../config/strings.dart';
 import '../config/title_server_config.dart';
+import '../widgets/app_button.dart';
+import '../widgets/app_card.dart';
+import '../widgets/app_page.dart';
 import 'config_export_import_page.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -99,118 +101,85 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       appBar: widget.showAppBar
           ? AppBar(
               title: const Text(AppStrings.titleServerSettings),
             )
           : null,
-      body: SingleChildScrollView(
+      body: AppPageBody(
         padding: const EdgeInsets.all(20),
-        child: responsiveBody(
-          context,
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildSection(theme, AppStrings.titleServerSection, [
-                  _buildField(controller: _urlController, label: AppStrings.labelTitleServerUrl),
-                  const SizedBox(height: 14),
-                  _buildField(controller: _aesKeyController, label: AppStrings.labelAesKey),
-                  const SizedBox(height: 14),
-                  _buildField(controller: _aesIvController, label: AppStrings.labelAesIv),
-                  const SizedBox(height: 14),
-                  _buildField(controller: _clientIdController, label: AppStrings.labelClientId),
-                  const SizedBox(height: 14),
-                  _buildField(controller: _obfuscateController, label: AppStrings.labelObfuscateParam),
-                  const SizedBox(height: 14),
-                  _buildField(controller: _apiVersionController, label: AppStrings.labelApiVersion),
-                ]),
-                const SizedBox(height: 24),
-                _buildSection(theme, AppStrings.machineSettings, [
-                  _buildField(controller: _regionIdController, label: AppStrings.labelRegionId),
-                  const SizedBox(height: 14),
-                  _buildField(controller: _regionNameController, label: AppStrings.labelRegionName),
-                  const SizedBox(height: 14),
-                  _buildField(controller: _placeIdController, label: AppStrings.labelPlaceId),
-                  const SizedBox(height: 14),
-                  _buildField(controller: _placeNameController, label: AppStrings.labelPlaceName),
-                ]),
-                const SizedBox(height: 24),
-                _buildSection(theme, AppStrings.authServerSettings, [
-                  _buildField(
-                    controller: _keychipIdController,
-                    label: AppStrings.labelKeychipId,
-                    help: AppStrings.helpKeychipId,
-                  ),
-                ]),
-                const SizedBox(height: 32),
-                FilledButton.icon(
-                  onPressed: _save,
-                  icon: const Icon(Icons.save, size: 20),
-                  label: const Text(AppStrings.save),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildSection(AppStrings.titleServerSection, [
+                _buildField(controller: _urlController, label: AppStrings.labelTitleServerUrl),
+                const SizedBox(height: 14),
+                _buildField(controller: _aesKeyController, label: AppStrings.labelAesKey),
+                const SizedBox(height: 14),
+                _buildField(controller: _aesIvController, label: AppStrings.labelAesIv),
+                const SizedBox(height: 14),
+                _buildField(controller: _clientIdController, label: AppStrings.labelClientId),
+                const SizedBox(height: 14),
+                _buildField(controller: _obfuscateController, label: AppStrings.labelObfuscateParam),
+                const SizedBox(height: 14),
+                _buildField(controller: _apiVersionController, label: AppStrings.labelApiVersion),
+              ]),
+              const SizedBox(height: 24),
+              _buildSection(AppStrings.machineSettings, [
+                _buildField(controller: _regionIdController, label: AppStrings.labelRegionId),
+                const SizedBox(height: 14),
+                _buildField(controller: _regionNameController, label: AppStrings.labelRegionName),
+                const SizedBox(height: 14),
+                _buildField(controller: _placeIdController, label: AppStrings.labelPlaceId),
+                const SizedBox(height: 14),
+                _buildField(controller: _placeNameController, label: AppStrings.labelPlaceName),
+              ]),
+              const SizedBox(height: 24),
+              _buildSection(AppStrings.authServerSettings, [
+                _buildField(
+                  controller: _keychipIdController,
+                  label: AppStrings.labelKeychipId,
+                  help: AppStrings.helpKeychipId,
                 ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    await Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ConfigExportImportPage()),
-                    );
-                    if (mounted) {
-                      _loadConfig();
-                    }
-                  },
-                  icon: const Icon(Icons.import_export, size: 20),
-                  label: const Text(AppStrings.configExportImport),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+              ]),
+              const SizedBox(height: 32),
+              AppButton(
+                label: AppStrings.save,
+                icon: Icons.save,
+                onPressed: _save,
+              ),
+              const SizedBox(height: 12),
+              AppOutlinedButton(
+                label: AppStrings.configExportImport,
+                icon: Icons.import_export,
+                onPressed: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const ConfigExportImportPage(),
                     ),
-                  ),
-                ),
-              ],
-            ),
+                  );
+                  if (mounted) _loadConfig();
+                },
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildSection(ThemeData theme, String title, List<Widget> children) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: theme.colorScheme.outline.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ...children,
-          ],
-        ),
+  Widget _buildSection(String title, List<Widget> children) {
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionTitle(title: title),
+          const SizedBox(height: 16),
+          ...children,
+        ],
       ),
     );
   }

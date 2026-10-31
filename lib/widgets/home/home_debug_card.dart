@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../config/strings.dart';
 import '../app_card.dart';
+import '../app_code_box.dart';
+import '../app_notice.dart';
 
 /// 调试用的原始 API 响应卡，默认折叠。
 class DebugRawJsonCard extends StatefulWidget {
@@ -47,23 +49,7 @@ class _DebugRawJsonCardState extends State<DebugRawJsonCard> {
           ),
           if (_expanded) ...[
             const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withValues(
-                  alpha: 0.5,
-                ),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: SelectableText(
-                widget.rawJson,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontFamily: 'monospace',
-                  fontSize: 11,
-                ),
-              ),
-            ),
+            AppCodeBox(text: widget.rawJson, maxHeight: null),
           ],
         ],
       ),
@@ -78,34 +64,10 @@ class ErrorIdBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.warning_amber_rounded,
-            size: 20,
-            color: theme.colorScheme.onErrorContainer,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'API returned errorId: $errorId',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onErrorContainer,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
+    return AppNotice(
+      AppStrings.apiErrorId(errorId),
+      error: true,
+      icon: Icons.warning_amber_rounded,
     );
   }
 }

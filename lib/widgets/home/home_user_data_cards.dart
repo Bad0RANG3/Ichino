@@ -112,7 +112,7 @@ class StatusFromUserDataCard extends StatelessWidget {
           AppStrings.banState,
           data.banState == 0,
           trueText: AppStrings.clean,
-          falseText: '已封禁 (${data.banState})',
+          falseText: AppStrings.banned(data.banState),
         ),
         HomeStatusChip(
           AppStrings.dailyBonus,
@@ -151,15 +151,7 @@ class _UserDataDetailCardState extends State<UserDataDetailCard> {
         children: [
           Row(
             children: [
-              Expanded(
-                child: Text(
-                  AppStrings.moreDetails,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
+              const Expanded(child: SectionTitle(title: AppStrings.moreDetails)),
               Icon(
                 _expanded ? Icons.expand_less : Icons.expand_more,
                 color: theme.colorScheme.onSurfaceVariant,
@@ -168,40 +160,24 @@ class _UserDataDetailCardState extends State<UserDataDetailCard> {
           ),
           if (_expanded) ...[
             const SizedBox(height: 14),
-            _detailRow(theme, AppStrings.userId, '${data.userId}'),
-            _detailRow(theme, AppStrings.point, '${data.point}'),
-            _detailRow(theme, AppStrings.totalPoint, '${data.totalPoint}'),
-            _detailRow(theme, AppStrings.iconId, '${data.iconId}'),
-            _detailRow(theme, AppStrings.nameplateId, '${data.nameplateId}'),
-            _detailRow(theme, AppStrings.plateId, '${data.plateId}'),
-            _detailRow(theme, AppStrings.frameId, '${data.frameId}'),
-            _detailRow(theme, AppStrings.titleId, '${data.titleId}'),
-            _detailRow(theme, AppStrings.trophyId, '${data.trophyId}'),
-            _detailRow(theme, AppStrings.partnerId, '${data.partnerId}'),
-            _detailRow(theme, AppStrings.gradeRank, '${data.gradeRank}'),
-            _detailRow(theme, AppStrings.courseRank, '${data.courseRank}'),
-            _detailRow(theme, AppStrings.classRank, '${data.classRank}'),
+            // 「更多详情」里的字段名更长，标签列比主页统计卡宽一些。
+            for (final (label, value) in [
+              (AppStrings.userId, '${data.userId}'),
+              (AppStrings.point, '${data.point}'),
+              (AppStrings.totalPoint, '${data.totalPoint}'),
+              (AppStrings.iconId, '${data.iconId}'),
+              (AppStrings.nameplateId, '${data.nameplateId}'),
+              (AppStrings.plateId, '${data.plateId}'),
+              (AppStrings.frameId, '${data.frameId}'),
+              (AppStrings.titleId, '${data.titleId}'),
+              (AppStrings.trophyId, '${data.trophyId}'),
+              (AppStrings.partnerId, '${data.partnerId}'),
+              (AppStrings.gradeRank, '${data.gradeRank}'),
+              (AppStrings.courseRank, '${data.courseRank}'),
+              (AppStrings.classRank, '${data.classRank}'),
+            ])
+              AppInfoRow(label: label, value: value, labelWidth: 130),
           ],
-        ],
-      ),
-    );
-  }
-
-  Widget _detailRow(ThemeData theme, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 130,
-            child: Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-          Expanded(child: Text(value, style: theme.textTheme.bodyMedium)),
         ],
       ),
     );
