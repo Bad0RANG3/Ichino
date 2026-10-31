@@ -41,12 +41,15 @@ dependencies:
   shared_preferences: ^2.5.5
   share_plus: ^13.3.0
 
-# path_provider_android 2.3.x 开始依赖 jni，而 jni 把 windows/linux 也声明成了
-# ffiPlugin，只要它出现在依赖树里，桌面构建就会去链接 jvm.lib（本机只有
-# ARM64 JDK，x64 构建必然 LNK2019）。本应用不使用 path_provider，
-# 它只是 share_plus 的间接依赖，因此把 Android 实现钉在引入 jni 之前。
+# jni 把 windows/linux 也声明成了 ffiPlugin，只要它出现在依赖树里，桌面构建
+# 就会去链接 jvm.lib（本机只有 ARM64 JDK，x64 构建必然 LNK2019）。下面两个
+# 包都是在某个版本之后才改成依赖 jni 的，因此把它们的实现钉在引入 jni 之前：
+# - path_provider_android 2.3.x 起依赖 jni（本应用不使用 path_provider，
+#   它只是 share_plus 的间接依赖）
+# - shared_preferences_android 2.5.x 起依赖 jni（shared_preferences 的 Android 端）
 dependency_overrides:
   path_provider_android: <2.3.0
+  shared_preferences_android: <2.5.0
 
 dev_dependencies:
   flutter_test:
