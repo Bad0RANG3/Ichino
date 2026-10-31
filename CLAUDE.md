@@ -52,6 +52,7 @@ lib/
 │   │   ├── home_tab.dart       # 六个页签的标题 / 图标 / 顺序
 │   │   └── home_tab_view.dart  # 首页内容（加载 / 错误 / preview / userData 分支）
 │   ├── settings_page.dart   # Title Server / 机器参数配置
+│   ├── music_risk_feature_page.dart # 解锁歌曲 / 收藏品的共用页面外壳（按 mode 取文案）
 │   └── ...                  # 各功能页（ticket / best50 / 风险操作等）
 ├── models/
 │   ├── session_model.dart   # 会话与 Cookie 的唯一持有者（ChangeNotifier 单例）
@@ -59,13 +60,17 @@ lib/
 ├── widgets/
 │   ├── cooldown_mixin.dart  # CooldownMixin：登录后冷却倒计时
 │   ├── step_progress.dart   # RiskStep + StepProgressCard
-│   ├── app_card.dart        # AppCard / SectionTitle / AutoLogoutToggle
+│   ├── app_page.dart        # AppPageBody（滚动 + 限宽居中）/ AppStateView（整页状态）
+│   ├── app_button.dart      # AppButton / AppOutlinedButton（统一主次按钮）
+│   ├── app_code_box.dart    # AppCodeBox：日志 / Base64 / 备份 JSON 的等宽框
+│   ├── app_card.dart        # AppCard / SectionTitle / AppInfoRow / AutoLogoutToggle
 │   ├── app_notice.dart      # AppNotice + context.showSnack
 │   ├── home/                # 主页资料 / 统计 / 调试卡片
 │   ├── risk/
-│   │   ├── risk_list_widgets.dart  # 待提交列表与表单控件
+│   │   ├── risk_page_scaffold.dart # RiskFeatureScaffold：风险页统一骨架（骨架/说明卡/按钮/阶段卡）
+│   │   ├── risk_list_widgets.dart  # 待提交列表与表单控件（含 RiskNumberField / RiskAddButton）
 │   │   ├── music_risk_editors.dart # 解锁歌曲 / 收藏品编辑器
-│   │   └── risk_run_mixin.dart     # 风险执行阶段与错误上报
+│   │   └── risk_run_mixin.dart     # 风险执行状态、登录门禁、拉取外壳与错误上报
 │   └── best50_poster.dart   # B50 成绩图
 └── services/
     ├── api_service.dart     # Aime 登录 API 客户端
@@ -78,9 +83,20 @@ lib/
 ### Key Design Decisions
 
 - **Risk-flow scaffolding is shared**: the feature pages (ticket / unlock music / collectibles /
-  travel partner / number patch / map traverse / kaleidx / risk hub) all use `CooldownMixin`,
-  `RiskStep`, `StepProgressCard`, `AppCard`, `AppNotice` and `AutoLogoutToggle` instead of
-  copy-pasting the same timer / step / banner / card code. Keep new pages on these primitives.
+  travel partner / number patch / map traverse / kaleidx / risk hub) render through
+  `RiskFeatureScaffold` (`widgets/risk/risk_page_scaffold.dart`), which owns the fixed order
+  *未登录/冷却提示 → 说明卡 → 各页卡片 → 自动退登 → 执行按钮 → 阶段卡* and the spacing between
+  them; a page only supplies text, callbacks and its own cards. Execution state (`riskRunning` /
+  `riskFetching` / step / error + auto-logout) comes from `RiskRunMixin`, which also provides
+  `ensureRiskReady(...)` (config → login → cooldown gate that snacks on failure) and
+  `runRiskFetch(...)` (fetch wrapper that maintains `riskFetching` and reports failures). Form
+  controls come from `risk_list_widgets.dart` (`RiskNumberField` / `RiskAddButton` /
+  `RiskDropdownField` / `RiskPendingList` / `RiskPendingIds`) and `AppCard` / `SectionTitle` /
+  `AutoLogoutToggle` / `AppNotice`. Do not re-hand-roll any of these in a new page.
+- **UI copy stays short**: `config/strings.dart` holds one-line user-facing text only. Wire-format
+  and client-behaviour explanations belong in code comments (see the class doc at the top of the
+  risk pages), not in the UI — a paragraph that needs three lines to explain usually means the
+  text should be cut, not the card grown.
 - **QR decoding is native-only**: `services/qr_service.dart` calls the
   `dev.naominet.ichino/qr_scanner` MethodChannel, implemented by Android's `MainActivity` and
   iOS's `SceneDelegate`. Desktop has no handler, so image-based QR scanning is mobile-only.

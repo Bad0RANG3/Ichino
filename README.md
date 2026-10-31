@@ -88,7 +88,7 @@ flutter test
 lib/
 ├── main.dart            # 入口（MyApp + MaterialApp）
 ├── config/              # 字符串、响应式布局、Title Server 配置
-├── core/                # 宽松 JSON 解析、UTC+8 时间格式化
+├── core/                # 宽松 JSON 解析、UTC+8 时间格式化、Cookie 解析
 ├── models/              # API 数据模型与 SessionModel（会话 / Cookie 的唯一持有者）
 ├── pages/
 │   ├── home/            # 主页页签枚举与首页视图（HomeTab / HomeTabView）
@@ -96,8 +96,8 @@ lib/
 ├── services/            # 传输层、payload 组装、乐曲元数据、导出、RA 计算、调试日志
 └── widgets/
     ├── home/            # 主页头像、资料、统计、调试卡片
-    ├── risk/            # 风险页共享脚手架、列表控件与编辑器
-    └── ...              # 可复用视觉组件（B50 海报、卡片/提示、冷却 mixin、阶段进度卡）
+    ├── risk/            # 风险页统一骨架、列表控件与编辑器
+    └── ...              # 可复用视觉组件（页面骨架 / 按钮 / 等宽框 / 卡片 / 提示 / B50 海报）
 tools/                   # 离线开发工具（不参与构建产物）
 data/id_mapping/         # 由 tools/gen_id_mapping.dart 从机台数据包抽出的 ID 映射表
 ```
@@ -108,17 +108,26 @@ data/id_mapping/         # 由 tools/gen_id_mapping.dart 从机台数据包抽�
 功能票 / 解锁歌曲 / 收藏品 / 旅行伙伴 / 数值修改 / 一键跑图 / 万花筒 / 高危 hub
 这些页面以前各抄一份脚手架，现已收口到：
 
+- `widgets/risk/risk_page_scaffold.dart` —`RiskFeatureScaffold`：页面骨架（未登录提示 →
+  说明卡 → 各页卡片 → 自动退登 → 执行按钮 → 阶段卡）与卡片间距的唯一来源。
+- `widgets/risk/risk_run_mixin.dart` — 执行状态、`ensureRiskReady()` 登录门禁、
+  `runRiskFetch()` 拉取外壳与错误上报。
 - `widgets/cooldown_mixin.dart` —`CooldownMixin`：登录后冷却倒计时（`Timer.periodic`）。
 - `widgets/step_progress.dart` —`RiskStep` + `StepProgressCard`：执行阶段枚举与进度卡。
 - `widgets/risk/risk_list_widgets.dart` —`RiskPendingList` / `RiskPendingRow` /
-  `RiskDropdownField` / `RiskNumberField` / `RiskAddButton`：待提交列表与表单控件。
+  `RiskPendingIds` / `RiskDropdownField` / `RiskNumberField` / `RiskAddButton`：
+  待提交列表与表单控件。
 - `widgets/risk/music_risk_editors.dart` — 解锁歌曲与收藏品的输入编辑器
   （`PendingItem` / `PendingMusic`）。
-- `widgets/app_card.dart` —`AppCard` / `SectionTitle` / `AutoLogoutToggle`。
+- `widgets/app_page.dart` —`AppPageBody`（滚动 + 限宽居中）/ `AppStateView`（整页状态）。
+- `widgets/app_button.dart` —`AppButton` / `AppOutlinedButton`：统一主次按钮与忙时转圈。
+- `widgets/app_card.dart` —`AppCard` / `SectionTitle` / `AppInfoRow` / `AutoLogoutToggle`。
 - `widgets/app_notice.dart` —`AppNotice`（未登录/冷却/错误横幅）与 `context.showSnack`。
+- `widgets/app_code_box.dart` —`AppCodeBox`：日志 / Base64 / 备份 JSON 的等宽框。
 - `core/json_value.dart` —`jsonInt` / `jsonDouble` / `jsonBool` / `jsonString` /
   `jsonMap` / `jsonMapList`：服务器字段类型不稳定，统一宽松转换。
 - `core/date_time_format.dart` — UTC+8 时间戳与 `yyyy-MM-dd HH:mm:ss.f` 格式化。
+- `core/cookie.dart` —`parseJsessionId()`：响应头与连接信息共用同一套 Cookie 解析。
 - `models/session_model.dart` —`SessionModel.createTitleService()` 统一构建会话服务；
   Cookie 在任意响应里轮换时经 `onCookiesChanged` 回写，页面不再拿旧快照。
 - `services/title_api_service.dart` —`TitleApiService.fromHolder()` 统一构建会话，`config` getter
